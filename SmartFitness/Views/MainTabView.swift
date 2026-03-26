@@ -5,13 +5,9 @@ struct MainTabView: View {
     @State private var selectedTab = 0
     
     var body: some View {
-        TabView(selection: $selectedTab) {
+        TabView(selection: $appData.selectedTab) {
             NavigationView {
-                if appData.currentPlan != nil {
-                    TrainingPlanListView()
-                } else {
-                    GeneratePlanView()
-                }
+                TrainingPlanListView()
             }
             .tabItem {
                 Label("训练计划", systemImage: "figure.strengthtraining.traditional")
@@ -19,7 +15,7 @@ struct MainTabView: View {
             .tag(0)
             
             NavigationView {
-                TodayTrainingView()
+                ExerciseLibraryView()//TodayTrainingView()
             }
             .tabItem {
                 Label("今日训练", systemImage: "plus.circle")
@@ -32,13 +28,13 @@ struct MainTabView: View {
                 }
                 .tag(2)
             
-            MeView()
-                .tabItem {
-                    Label("我的", systemImage: "person.circle")
-                }
-                .tag(3)
+//            MeView()
+//                .tabItem {
+//                    Label("我的", systemImage: "person.circle")
+//                }
+//                .tag(3)
         }
-        .accentColor(Theme.primary)
+        .accentColor(StitchTheme.primary)
         .preferredColorScheme(.dark)
     }
 }
@@ -51,7 +47,7 @@ struct TodayTrainingView: View {
         ZStack {
             Theme.background.ignoresSafeArea()
             
-            if appData.todayExercises.isEmpty {
+            if appData.manualPlan.isEmpty {
                 VStack(spacing: 20) {
                     Image(systemName: "figure.strengthtraining.traditional")
                         .font(.system(size: 60))
@@ -71,7 +67,7 @@ struct TodayTrainingView: View {
                             .foregroundColor(Theme.textPrimary)
                             .padding(.top, 16)
                         
-                        ForEach($appData.todayExercises) { $exercise in
+                        ForEach($appData.manualPlan) { $exercise in
                             ExerciseCard(exercise: $exercise)
                         }
                     }

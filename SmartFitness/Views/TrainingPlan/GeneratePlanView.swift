@@ -2,186 +2,204 @@ import SwiftUI
 
 struct GeneratePlanView: View {
     @EnvironmentObject var appData: AppData
+    @Environment(\.dismiss) var dismiss
+    
     @State private var selectedLevel: TrainingLevel = .novice
     @State private var selectedFrequency: TrainingFrequency = .three
     @State private var selectedScene: TrainingScene = .gym
     @State private var selectedInjuries: Set<Injury> = [.none]
     @State private var isGenerating = false
-    
-    @State private var isNavigationActive = false
     @State private var errorMessage: String? = nil
 
     var body: some View {
         ZStack {
-            Theme.background.ignoresSafeArea()
+            StitchTheme.background.ignoresSafeArea()
             
-            // 此时不需要 NavigationLink 了，因为 MainTabView 会根据 appData.currentPlan 自动切换视图
-            // 但如果您想保留二级页面跳转感，也可以保留。这里为了逻辑一致性，我们让生成后直接更新全局状态。
-            
-            ScrollView {
-                VStack(alignment: .leading, spacing: 32) {
-                    if let errorMessage = errorMessage {
-                        Text(errorMessage)
-                            .foregroundColor(.red)
-                            .padding()
-                    }
-                    
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("基础参数区")
-                            .font(Theme.Typography.caption)
-                            .foregroundColor(Theme.textSecondary)
-                        
-                        HStack(spacing: 0) {
-                            ForEach(TrainingLevel.allCases, id: \.self) { level in
-                                Button(action: { selectedLevel = level }) {
-                                    Text(level.rawValue)
-                                        .frame(maxWidth: .infinity)
-                                        .padding(.vertical, 10)
-                                        .background(selectedLevel == level ? Theme.primary : Theme.surface)
-                                        .foregroundColor(selectedLevel == level ? .white : Theme.textSecondary)
-                                }
-                            }
-                        }
-                        .cornerRadius(8)
-                        
-                        Text(selectedLevel.description)
-                            .font(Theme.Typography.caption)
-                            .foregroundColor(Theme.secondary)
-                            .padding(.top, 4)
-                    }
-                    
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("训练频率")
-                            .font(Theme.Typography.caption)
-                            .foregroundColor(Theme.textSecondary)
-                        
-                        Picker("训练频率", selection: $selectedFrequency) {
-                            ForEach(TrainingFrequency.allCases, id: \.self) { freq in
-                                Text(freq.rawValue).tag(freq)
-                            }
-                        }
-                        .pickerStyle(.menu)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 4)
-                        .background(Theme.surface)
-                        .cornerRadius(8)
-                        .accentColor(.white)
-                    }
-                    
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("训练场景")
-                            .font(Theme.Typography.caption)
-                            .foregroundColor(Theme.textSecondary)
-                        
-                        HStack(spacing: 12) {
-                            ForEach(TrainingScene.allCases, id: \.self) { scene in
-                                Button(action: { selectedScene = scene }) {
-                                    HStack {
-                                        Circle()
-                                            .stroke(selectedScene == scene ? Theme.primary : Color.gray, lineWidth: 2)
-                                            .frame(width: 16, height: 16)
-                                            .overlay(
-                                                Circle()
-                                                    .fill(selectedScene == scene ? Theme.primary : Color.clear)
-                                                    .frame(width: 10, height: 10)
-                                            )
-                                        Text(scene.rawValue)
-                                    }
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 12)
-                                    .background(Theme.surface)
-                                    .cornerRadius(8)
-                                    .foregroundColor(Theme.textPrimary)
-                                }
-                            }
-                        }
-                    }
-                    
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("伤病史区")
-                            .font(Theme.Typography.caption)
-                            .foregroundColor(Theme.textSecondary)
-                        
-                        let columns = [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())]
-                        LazyVGrid(columns: columns, spacing: 12) {
-                            ForEach(Injury.allCases, id: \.self) { injury in
-                                Button(action: { toggleInjury(injury) }) {
-                                    Text(injury.rawValue)
-                                        .frame(maxWidth: .infinity)
-                                        .padding(.vertical, 8)
-                                        .background(selectedInjuries.contains(injury) ? Theme.primary.opacity(0.2) : Theme.surface)
-                                        .foregroundColor(selectedInjuries.contains(injury) ? Theme.primary : Theme.textSecondary)
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 6)
-                                                .stroke(selectedInjuries.contains(injury) ? Theme.primary : Color.clear, lineWidth: 1)
-                                        )
-                                }
-                                .cornerRadius(6)
-                            }
-                        }
-                        
-                        if !selectedInjuries.isEmpty && !selectedInjuries.contains(.none) {
-                            Text(selectedInjuries.map { $0.rawValue }.joined(separator: " + "))
-                                .font(Theme.Typography.caption)
-                                .foregroundColor(Theme.secondary)
-                                .padding(.top, 4)
-                        }
-                    }
-                    
-                    VStack(spacing: 16) {
-                        Button(action: generatePlan) {
-                            if isGenerating {
-                                ProgressView()
-                                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                            } else {
-                                Text("生成计划")
-                                    .fontWeight(.bold)
-                            }
-                        }
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 48)
-                        .background(Theme.primary)
-                        .foregroundColor(.white)
-                        .cornerRadius(8)
-                        .disabled(isGenerating)
-                        
-                        HStack {
-                            Spacer()
-                            NavigationLink(destination: Text("历史计划列表")) {
-                                Text("历史计划")
-                                    .font(Theme.Typography.body)
-                                    .foregroundColor(Theme.textSecondary)
-                            }
-                        }
-                    }
-                    .padding(.top, 16)
+            VStack(spacing: 0) {
+                // Header
+                HStack {
+                    Text("GENERATE")
+                        .font(StitchTypography.headline)
+                        .italic()
+                        .foregroundColor(StitchTheme.onSurfaceVariant)
+                    + Text(" PROTOCOL")
+                        .font(StitchTypography.headline)
+                        .italic()
+                        .foregroundColor(StitchTheme.primaryContainer)
                     
                     Spacer()
+                    
+                    Button(action: { dismiss() }) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(StitchTheme.onSurfaceVariant)
+                            .padding(8)
+                            .background(StitchTheme.surfaceContainerHigh)
+                            .clipShape(Circle())
+                    }
                 }
-                .padding(.horizontal, 20)
+                .padding(24)
+                .background(StitchTheme.surfaceContainerLow)
+                
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 40) {
+                        
+                        // Error Message
+                        if let errorMessage = errorMessage {
+                            Text(errorMessage)
+                                .font(StitchTypography.labelSmall)
+                                .foregroundColor(StitchTheme.secondary)
+                                .padding()
+                                .background(StitchTheme.secondary.opacity(0.1))
+                                .cornerRadius(8)
+                        }
+                        
+                        // 1. Level Selection
+                        protocolSection(title: "TRAINING LEVEL", subtitle: "SPECIFY EXPERIENCE") {
+                            HStack(spacing: 8) {
+                                ForEach(TrainingLevel.allCases, id: \.self) { level in
+                                    selectorButton(
+                                        title: level.rawValue.uppercased(),
+                                        isSelected: selectedLevel == level
+                                    ) {
+                                        selectedLevel = level
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // 2. Frequency Selection
+                        protocolSection(title: "FREQUENCY", subtitle: "SESSIONS PER WEEK") {
+                            HStack(spacing: 8) {
+                                ForEach(TrainingFrequency.allCases, id: \.self) { freq in
+                                    selectorButton(
+                                        title: freq.rawValue.uppercased(),
+                                        isSelected: selectedFrequency == freq
+                                    ) {
+                                        selectedFrequency = freq
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // 3. Scene Selection
+                        protocolSection(title: "ENVIRONMENT", subtitle: "LOCATION TYPE") {
+                            HStack(spacing: 8) {
+                                ForEach(TrainingScene.allCases, id: \.self) { scene in
+                                    selectorButton(
+                                        title: scene.rawValue.uppercased(),
+                                        isSelected: selectedScene == scene
+                                    ) {
+                                        selectedScene = scene
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // 4. Injuries
+                        protocolSection(title: "LIMITATIONS", subtitle: "INJURY HISTORY") {
+                            let columns = [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())]
+                            LazyVGrid(columns: columns, spacing: 12) {
+                                ForEach(Injury.allCases, id: \.self) { injury in
+                                    selectorButton(
+                                        title: injury.rawValue.uppercased(),
+                                        isSelected: selectedInjuries.contains(injury),
+                                        isSmall: true
+                                    ) {
+                                        toggleInjury(injury)
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // Generate Button
+                        VStack(spacing: 16) {
+                            Button(action: generatePlan) {
+                                HStack {
+                                    if isGenerating {
+                                        ProgressView()
+                                            .tint(StitchTheme.onPrimaryFixed)
+                                            .padding(.trailing, 8)
+                                    }
+                                    Text(isGenerating ? "OPTIMIZING..." : "GENERATE PROTOCOL")
+                                        .font(StitchTypography.label)
+                                        .tracking(2)
+                                }
+                                .foregroundColor(StitchTheme.onPrimaryFixed)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 64)
+                                .background(StitchTheme.primaryContainer)
+                                .cornerRadius(12)
+                                .shadow(color: StitchTheme.primaryContainer.opacity(0.3), radius: 20, y: 10)
+                            }
+                            .disabled(isGenerating)
+                            
+                            Text("AI-DRIVEN PARAMETRIC PROGRAMMING")
+                                .font(StitchTypography.labelSmall)
+                                .foregroundColor(StitchTheme.onSurfaceVariant)
+                                .opacity(0.5)
+                        }
+                        .padding(.top, 20)
+                        
+                        Spacer(minLength: 40)
+                    }
+                    .padding(24)
+                }
             }
-            .navigationTitle("生成训练计划")
-            .navigationBarTitleDisplayMode(.inline)
         }
     }
     
+    // MARK: - Components
+    
+    private func protocolSection<Content: View>(title: String, subtitle: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(StitchTypography.label)
+                    .tracking(3)
+                    .foregroundColor(StitchTheme.primaryContainer)
+                Text(subtitle)
+                    .font(StitchTypography.labelSmall)
+                    .foregroundColor(StitchTheme.onSurfaceVariant)
+            }
+            content()
+        }
+    }
+    
+    private func selectorButton(title: String, isSelected: Bool, isSmall: Bool = false, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(isSmall ? StitchTypography.labelSmall : StitchTypography.label)
+                .tracking(1)
+                .foregroundColor(isSelected ? StitchTheme.onPrimaryFixed : StitchTheme.onSurfaceVariant)
+                .frame(maxWidth: .infinity)
+                .frame(height: isSmall ? 40 : 50)
+                .background(isSelected ? StitchTheme.primaryContainer : StitchTheme.surfaceContainerHigh)
+                .cornerRadius(6)
+        }
+        .animation(.spring(response: 0.3), value: isSelected)
+    }
+    
     private func toggleInjury(_ injury: Injury) {
-        if injury == .none {
-            selectedInjuries = [.none]
-        } else {
-            selectedInjuries.remove(.none)
-            if selectedInjuries.contains(injury) {
-                selectedInjuries.remove(injury)
-                if selectedInjuries.isEmpty {
-                    selectedInjuries.insert(.none)
-                }
+        withAnimation {
+            if injury == .none {
+                selectedInjuries = [.none]
             } else {
-                selectedInjuries.insert(injury)
+                selectedInjuries.remove(.none)
+                if selectedInjuries.contains(injury) {
+                    selectedInjuries.remove(injury)
+                    if selectedInjuries.isEmpty {
+                        selectedInjuries.insert(.none)
+                    }
+                } else {
+                    selectedInjuries.insert(injury)
+                }
             }
         }
     }
     
     private func generatePlan() {
+        UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
         isGenerating = true
         errorMessage = nil
 
@@ -190,17 +208,17 @@ struct GeneratePlanView: View {
             switch result {
             case .success(let plan):
                 withAnimation {
-                    self.appData.currentPlan = plan
+                    self.appData.aiSmartPlan = plan
+                    dismiss()
                 }
             case .failure(let error):
-                self.errorMessage = "Failed to generate plan: \(error.localizedDescription)"
+                self.errorMessage = "SYSTEM ERROR: \(error.localizedDescription.uppercased())"
             }
         }
     }
 }
 
 #Preview {
-    NavigationView {
-        GeneratePlanView()
-    }
+    GeneratePlanView()
+        .environmentObject(AppData())
 }

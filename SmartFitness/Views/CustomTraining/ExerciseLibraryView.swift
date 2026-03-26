@@ -1,0 +1,374 @@
+import SwiftUI
+
+struct ExerciseLibraryView: View {
+    @EnvironmentObject var appData: AppData
+    @StateObject private var store = ExerciseLibraryStore.shared
+    @State private var searchText = ""
+    @State private var selectedCategory = "ALL"
+    @State private var selectedExercises: [LibraryExercise] = []
+    
+    let categories = ["ALL", "CHEST", "BACK", "LEGS", "SHOULDERS", "ARMS", "ABDOMINALS"]
+    
+    var filteredExercises: [LibraryExercise] {
+        store.exercises.filter { exercise in
+            let matchesSearch = searchText.isEmpty || exercise.name.localizedCaseInsensitiveContains(searchText)
+            let matchesCategory = selectedCategory == "ALL" || exercise.primaryMuscles.contains { $0.localizedCaseInsensitiveContains(selectedCategory) }
+            return matchesSearch && matchesCategory
+        }
+    }
+    
+    var body: some View {
+        ZStack {
+            StitchTheme.background.ignoresSafeArea()
+            
+            VStack(spacing: 0) {
+                // Header
+                headerSection
+                
+                // Content
+                ScrollView {
+                    VStack(spacing: 24) {
+                        searchSection
+                        categoryChipsSection
+                        exerciseGridSection
+                    }
+                    .padding(.top, 24)
+                    .padding(.bottom, 120) // Extra padding for the floating button
+                }
+            }
+            
+            // Floating Confirm Button
+            if !selectedExercises.isEmpty {
+                confirmButtonSection
+            }
+            
+            if store.isLoading {
+                ProgressView()
+                    .tint(StitchTheme.primaryContainer)
+                    .scaleEffect(1.5)
+            }
+        }
+        .navigationBarHidden(true)
+        .preferredColorScheme(.dark)
+    }
+    
+    @ViewBuilder
+    private var headerSection: some View {
+        HStack(alignment: .bottom) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(appData.replacementTargetId != nil ? "REPLACEMENT MODE" : "LIBRARY")
+                    .font(StitchTypography.headlineLarge)
+                    .italic()
+                    .foregroundColor(StitchTheme.primaryContainer)
+            }
+            Spacer()
+            
+            if !selectedExercises.isEmpty {
+                Text("SELECTED: \(selectedExercises.count)")
+                    .font(StitchTypography.label)
+                    .foregroundColor(StitchTheme.primaryContainer)
+                    .padding(.bottom, 8)
+            }
+        }
+        .padding(.horizontal, 24)
+        .padding(.top, 20)
+        .overlay(
+            LinearGradient(
+                colors: [StitchTheme.primaryContainer, StitchTheme.primaryContainer.opacity(0.1), .clear],
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+            .frame(height: 2)
+            .padding(.horizontal, 24)
+            .offset(y: 8),
+            alignment: .bottom
+        )
+    }
+    
+    @ViewBuilder
+    private var searchSection: some View {
+        HStack {
+            Image(systemName: "magnifyingglass")
+                .foregroundColor(StitchTheme.onSurfaceVariant)
+            TextField("SEARCH EXERCISES...", text: $searchText)
+                .font(StitchTypography.label)
+                .tracking(1.0)
+                .foregroundColor(StitchTheme.onSurface)
+                .submitLabel(.search)
+        }
+        .padding(16)
+        .background(StitchTheme.surfaceContainerLow)
+        .cornerRadius(8)
+        .padding(.horizontal, 24)
+    }
+    
+    @ViewBuilder
+    private var categoryChipsSection: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 12) {
+                ForEach(categories, id: \.self) { category in
+                    Button {
+                        withAnimation(.spring(response: 0.3)) {
+                            selectedCategory = category
+                        }
+                    } label: {
+                        Text(category)
+                            .font(StitchTypography.label)
+                            .tracking(1.5)
+                            .padding(.horizontal, 24)
+                            .padding(.vertical, 10)
+                            .background(selectedCategory == category ? StitchTheme.primaryContainer : StitchTheme.surfaceContainerHigh)
+                            .foregroundColor(selectedCategory == category ? StitchTheme.onPrimaryFixed : StitchTheme.onSurfaceVariant)
+                            .cornerRadius(4)
+                            .shadow(color: selectedCategory == category ? StitchTheme.primaryContainer.opacity(0.2) : .clear, radius: 10)
+                    }
+                }
+            }
+            .padding(.horizontal, 24)
+        }
+    }
+    
+    @ViewBuilder
+    private var exerciseGridSection: some View {
+        let columns = [
+            GridItem(.flexible(), spacing: 16),
+            GridItem(.flexible(), spacing: 16)
+        ]
+        
+        if filteredExercises.isEmpty {
+            VStack(spacing: 20) {
+                Image(systemName: "dumbbell.fill")
+                    .font(.system(size: 60))
+                    .foregroundColor(StitchTheme.surfaceContainerHighest)
+                Text("NO EXERCISES FOUND")
+                    .font(StitchTypography.label)
+                    .foregroundColor(StitchTheme.onSurfaceVariant)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.top, 60)
+        } else {
+            LazyVGrid(columns: columns, spacing: 16) {
+                ForEach(filteredExercises) { exercise in
+                    let isSelected = selectedExercises.contains(where: { $0.id == exercise.id })
+                    LibraryExerciseCard(exercise: exercise, isSelected: isSelected) {
+                        toggleSelection(exercise)
+                    }
+                    .transition(.scale.combined(with: .opacity))
+                }
+            }
+            .animation(.easeInOut(duration: 0.3), value: filteredExercises.count)
+            .padding(.horizontal, 24)
+        }
+    }
+    
+    @ViewBuilder
+    private var confirmButtonSection: some View {
+        VStack {
+            Spacer()
+            Button(action: {
+                if let targetId = appData.replacementTargetId, let newEx = selectedExercises.first {
+                    // Replacement Mode
+                    appData.replaceExercise(targetId: targetId, with: newEx)
+                    appData.replacementTargetId = nil
+                } else {
+                    // Normal Selection Mode
+                    let exercises = appData.convertLibraryExercises(selectedExercises)
+                    appData.addToToday(exercises: exercises)
+                }
+                
+                withAnimation {
+                    appData.selectedTab = 0
+                }
+                // Clear selection for next time
+                selectedExercises = []
+            }) {
+                HStack(spacing: 12) {
+                    let title = appData.replacementTargetId != nil ? "CONFIRM REPLACEMENT" : "CONFIRM SELECTION (\(selectedExercises.count))"
+                    Text(title)
+                        .font(StitchTypography.label)
+                        .tracking(2.0)
+                    Image(systemName: "checkmark.circle.fill")
+                }
+                .foregroundColor(StitchTheme.onPrimaryFixed)
+                .padding(.vertical, 18)
+                .frame(maxWidth: .infinity)
+                .background(StitchTheme.primaryContainer)
+                .cornerRadius(12)
+                .shadow(color: StitchTheme.primaryContainer.opacity(0.4), radius: 20, y: 10)
+            }
+            .padding(.horizontal, 24)
+            .padding(.bottom, 24)
+            .transition(.move(edge: .bottom).combined(with: .opacity))
+        }
+    }
+    
+    private func toggleSelection(_ exercise: LibraryExercise) {
+        if let index = selectedExercises.firstIndex(where: { $0.id == exercise.id }) {
+            selectedExercises.remove(at: index)
+        } else {
+            selectedExercises.append(exercise)
+        }
+    }
+}
+
+struct LibraryExerciseCard: View {
+    let exercise: LibraryExercise
+    var isSelected: Bool
+    var onTap: () -> Void
+    
+    @State private var isHovered = false
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // Image Placeholder/Loader
+            ZStack {
+                if let thumb = exercise.thumbnailPath {
+                    ExerciseImageView(imagePath: thumb)
+                        .grayscale((isHovered || isSelected) ? 0 : 1.0)
+                        .scaleEffect((isHovered || isSelected) ? 1.05 : 1.0)
+                } else {
+                    Rectangle()
+                        .fill(StitchTheme.surfaceContainerHighest)
+                        .overlay(
+                            Image(systemName: "figure.strengthtraining.traditional")
+                                .foregroundColor(StitchTheme.onSurfaceVariant.opacity(0.3))
+                        )
+                }
+                
+                if isSelected {
+                    Color.black.opacity(0.3)
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(StitchTheme.primaryContainer)
+                        .font(.title)
+                }
+            }
+            .frame(height: 120)
+            .clipped()
+            .cornerRadius(8)
+            
+            VStack(alignment: .leading, spacing: 4) {
+                Text(exercise.muscleLabel)
+                    .font(StitchTypography.labelSmall)
+                    .tracking(2.0)
+                    .foregroundColor(isSelected ? StitchTheme.primaryContainer : StitchTheme.secondary)
+                
+                Text(exercise.nameCN.uppercased())
+                    .font(StitchTypography.bodyBold)
+                    .italic()
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.8)
+                    .foregroundColor(StitchTheme.onSurface)
+                
+                HStack(spacing: 4) {
+                    Image(systemName: "fitness.center")
+                        .font(.system(size: 10))
+                        .foregroundColor(StitchTheme.onSurfaceVariant)
+                    Text(exercise.equipment?.uppercased() ?? "BODY ONLY")
+                        .font(StitchTypography.labelSmall)
+                        .foregroundColor(StitchTheme.onSurfaceVariant)
+                }
+                .padding(.top, 4)
+            }
+            .padding(.horizontal, 8)
+            .padding(.bottom, 12)
+        }
+        .background(isSelected ? StitchTheme.surfaceContainerHigh : StitchTheme.surfaceContainerLow)
+        .cornerRadius(12)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(isSelected ? StitchTheme.primaryContainer : Color.clear, lineWidth: 2)
+        )
+        .overlay(
+            Rectangle()
+                .fill(StitchTheme.primaryContainer)
+                .frame(width: 4)
+                .padding(.vertical, 8)
+                .opacity(isHovered ? 1 : 0),
+            alignment: .leading
+        )
+        .onTapGesture {
+            onTap()
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        }
+    }
+}
+
+struct ExerciseImageView: View {
+    let imagePath: String
+    
+    @State private var uiImage: UIImage? = nil
+    
+    var body: some View {
+        Group {
+            if let uiImage = uiImage {
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                Rectangle()
+                    .fill(StitchTheme.surfaceContainerHighest)
+                    .overlay(
+                        VStack(spacing: 4) {
+                            Image(systemName: "photo.on.rectangle.angled")
+                                .font(.system(size: 20))
+                            Text("NO IMAGE")
+                                .font(StitchTypography.labelSmall)
+                        }
+                        .foregroundColor(StitchTheme.onSurfaceVariant.opacity(0.4))
+                    )
+            }
+        }
+        .onAppear {
+            loadImage()
+        }
+    }
+    
+    private func loadImage() {
+        if imagePath.isEmpty { return }
+        
+        // JSON imagePath is like "3_4_Sit-Up_0"
+        // Actual files are in "exercises/3_4_Sit-Up/3_4_Sit-Up_0.jpg"
+        
+        // Try exact name as resource everywhere first
+        if let path = Bundle.main.path(forResource: imagePath, ofType: "jpg") {
+            self.uiImage = UIImage(contentsOfFile: path)
+            if self.uiImage != nil { return }
+        }
+        
+        // Try extracting folder from name (FOLDER_INDEX -> FOLDER)
+        let parts = imagePath.components(separatedBy: "_")
+        if parts.count > 1 {
+            let folder = parts.dropLast().joined(separator: "_")
+            let fileName = imagePath
+            
+            // Try: exercises/folder/fileName.jpg
+            if let path = Bundle.main.path(forResource: fileName, ofType: "jpg", inDirectory: "exercises/\(folder)") {
+                self.uiImage = UIImage(contentsOfFile: path)
+                if self.uiImage != nil { return }
+            }
+            
+            // Try: exercises/fileName.jpg (if not in subfolder)
+            if let path = Bundle.main.path(forResource: fileName, ofType: "jpg", inDirectory: "exercises") {
+                self.uiImage = UIImage(contentsOfFile: path)
+                if self.uiImage != nil { return }
+            }
+        }
+        
+        // Final broad fallbacks for named images/assets
+        if let img = UIImage(named: imagePath) {
+            self.uiImage = img
+        } else if let img = UIImage(named: "exercises/\(imagePath)") {
+            self.uiImage = img
+        }
+    }
+}
+
+// Ensure pre-existing Theme/Typography are accessible OR copy them here
+// Since I already matched types in previous tasks, I'll assume consistency or re-define locally if necessary.
+// To be safe, I'll copy the StitchTheme and StitchTypography here since they were defined locally in the other views.
+
+#Preview {
+    NavigationView {
+        ExerciseLibraryView()
+    }
+}

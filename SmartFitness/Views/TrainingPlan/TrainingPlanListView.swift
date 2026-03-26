@@ -2,77 +2,240 @@ import SwiftUI
 
 struct TrainingPlanListView: View {
     @EnvironmentObject var appData: AppData
+    @State private var showingGeneratePlan = false
     
     var body: some View {
-        ZStack {
-            Theme.background.ignoresSafeArea()
+        ZStack(alignment: .top) {
+            StitchTheme.background.ignoresSafeArea()
             
-            if let plan = appData.currentPlan {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 24) {
-                        // Summary
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text(plan.trainingSplit)
-                                .font(Theme.Typography.title1)
-                                .foregroundColor(Theme.textPrimary)
-                            Text(plan.instructions)
-                                .font(Theme.Typography.body)
-                                .foregroundColor(Theme.textSecondary)
-                                .lineSpacing(1.5)
-                        }
+            // Fixed Top Bar (Glassmorphic)
+            //            glassHeader
+            //                .zIndex(10)
+            
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 32) {
+                    
+                    // Welcome Header
+                    welcomeSection
+                        .padding(.top, 50) // Spacing for top bar
                         .padding(.horizontal, 20)
-                        .padding(.top, 20)
+                    
+                    // Today's Arrangement Section
+                    VStack(alignment: .leading, spacing: 16) {
+                        HStack(alignment: .bottom) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("THE PLAN")
+                                    .font(StitchTypography.label)
+                                    .foregroundColor(StitchTheme.onSurfaceVariant)
+                                    .tracking(2)
+                                
+                                Text("训练计划")
+                                    .font(StitchTypography.headline)
+                                    .foregroundColor(StitchTheme.onSurface)
+                            }
+                            Spacer()
+                        }
                         
-                        // Days List
-                        VStack(spacing: 16) {
-                            ForEach(plan.days) { day in
-                                NavigationLink(destination: TrainingPlanDetailView(plan: plan, selectedDayIndex: plan.days.firstIndex(where: { $0.id == day.id }) ?? 0)) {
-                                    HStack {
-                                        VStack(alignment: .leading, spacing: 4) {
-                                            Text("训练日 \(day.label)")
-                                                .font(Theme.Typography.title2)
-                                                .foregroundColor(Theme.textPrimary)
-                                            Text("\(day.exercises.count) 个动作")
-                                                .font(Theme.Typography.caption)
-                                                .foregroundColor(Theme.textSecondary)
-                                        }
-                                        Spacer()
-                                        Image(systemName: "chevron.right")
-                                            .foregroundColor(Theme.textSecondary)
-                                    }
-                                    .padding(20)
-                                    .background(Theme.surface)
-                                    .cornerRadius(12)
-                                }
+                        if let plan = appData.aiSmartPlan, let day = plan.days.first, !day.isCompleted {
+                            // AI Plan Current Day
+                            aiPlanArrangementCard(plan: plan, day: day)
+                        } else {
+                            // Empty State
+                            emptyStateSection
+                        }
+                        
+                        // Quick Entry Actions (Ignition Blocks)
+                        HStack(spacing: 16) {
+                            entryButton(
+                                title: "AI 生成",
+                                subtitle: "SMART GEN",
+                                icon: "sparkles",
+                                color: StitchTheme.primaryContainer,
+                                textColor: StitchTheme.onPrimaryFixed
+                            ) {
+                                showingGeneratePlan = true
+                            }
+                            
+                            entryButton(
+                                title: "手动选择",
+                                subtitle: "MANUAL",
+                                icon: "plus.circle",
+                                color: StitchTheme.surfaceContainerHigh,
+                                textColor: StitchTheme.primary
+                            ) {
+                                appData.selectedTab = 1
                             }
                         }
-                        .padding(.horizontal, 20)
-                        
-                        Spacer()
+                        .padding(.bottom, 40)
                     }
+                    .padding(.horizontal, 24)
                 }
             }
-        }
-        .navigationTitle("我的计划")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                Button(action: {
-                    withAnimation {
-                        appData.resetPlan()
-                    }
-                }) {
-                    Image(systemName: "arrow.clockwise")
-                        .foregroundColor(Theme.primary)
-                }
+            .navigationBarHidden(true)
+            .sheet(isPresented: $showingGeneratePlan) {
+                GeneratePlanView()
             }
         }
     }
-}
-
-#Preview {
-    NavigationView {
-        TrainingPlanListView()
-            .environmentObject(AppData())
+    // MARK: - Components
+    
+    private var glassHeader: some View {
+        HStack {
+            HStack(spacing: 12) {
+                Circle()
+                    .fill(StitchTheme.surfaceContainerHigh)
+                    .frame(width: 32, height: 32)
+                    .overlay(
+                        Image(systemName: "person.fill")
+                            .font(.system(size: 14))
+                            .foregroundColor(StitchTheme.onSurfaceVariant)
+                    )
+                    .overlay(Circle().stroke(StitchTheme.outlineVariant.opacity(0.2), lineWidth: 1))
+            }
+            
+            Spacer()
+            
+            Text("KINETIC NOIR")
+                .font(StitchTypography.headline)
+                .italic()
+                .tracking(4)
+                .foregroundColor(StitchTheme.primaryContainer)
+            
+            Spacer()
+            
+            Button(action: {}) {
+                Image(systemName: "slider.horizontal.3")
+                    .foregroundColor(StitchTheme.primaryContainer)
+            }
+        }
+        .padding(.horizontal, 24)
+        .frame(height: 64)
+        .background(
+            StitchTheme.surfaceContainerLow.opacity(0.8)
+                .background(.ultraThinMaterial)
+        )
+    }
+    
+    private var welcomeSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("COMMAND CENTER")
+                .font(StitchTypography.label)
+                .foregroundColor(StitchTheme.onSurfaceVariant)
+                .tracking(4)
+            
+            Group {
+                Text("WELCOME BACK,\n")
+                    .font(StitchTypography.headlineLarge)
+                    .foregroundColor(StitchTheme.onSurface)
+//                + Text("CHAMPION")
+//                    .font(StitchTypography.headlineLarge)
+//                    .foregroundColor(StitchTheme.primaryContainer)
+                    .italic()
+            }
+            
+//            HStack(spacing: 8) {
+//                Circle()
+//                    .fill(StitchTheme.primaryContainer)
+//                    .frame(width: 8, height: 8)
+//                Text("SYSTEM STATUS: OPTIMIZED")
+//                    .font(StitchTypography.label)
+//                    .foregroundColor(StitchTheme.onSurfaceVariant)
+//            }
+//            .padding(.top, 8)
+        }
+    }
+    
+    private func aiPlanArrangementCard(plan: TrainingPlan, day: TrainingDay) -> some View {
+        let index = plan.days.firstIndex(where: { $0.id == day.id }) ?? 0
+        let playName = "AI智能计划"
+        
+        return NavigationLink(destination: TrainingPlanDetailView(plan: plan, selectedDayIndex: index)) {
+            VStack(alignment: .leading, spacing: 24) {
+                HStack {
+                   
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("正在进行")
+                            .font(StitchTypography.labelSmall)
+                            .foregroundColor(StitchTheme.onSurfaceVariant)
+                        Text(playName)
+                            .font(StitchTypography.dataLarge)
+                            .foregroundColor(StitchTheme.primaryContainer)
+                    }
+                    Spacer()
+                    Image(systemName: "play.fill")
+                        .font(.title2)
+                        .foregroundColor(StitchTheme.onPrimaryFixed)
+                        .padding(16)
+                        .background(StitchTheme.primaryContainer)
+                        .clipShape(Circle())
+                }
+                
+                HStack(spacing: 32) {
+                    hudStat(label: "动作", value: "\(day.exercises.count)")
+                    hudStat(label: "时间", value: "45M")
+                    hudStat(label: "部位", value: plan.trainingSplit.uppercased())
+                }
+            }
+            .padding(24)
+            .background(StitchTheme.surfaceContainer)
+            .cornerRadius(12)
+        }
+    }
+    
+    
+    private var emptyStateSection: some View {
+        VStack(spacing: 24) {
+            Image(systemName: "bolt.slash.fill")
+                .font(.system(size: 48))
+                .foregroundColor(StitchTheme.onSurfaceVariant.opacity(0.3))
+            
+            VStack(spacing: 8) {
+                Text("没有可用的训练计划")
+                    .font(StitchTypography.dataMedium)
+                    .foregroundColor(StitchTheme.onSurface)
+                Text("生成智能计划或手动选择开始")
+                    .font(StitchTypography.labelSmall)
+                    .foregroundColor(StitchTheme.onSurfaceVariant)
+                    .multilineTextAlignment(.center)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 60)
+        .background(StitchTheme.surfaceContainerLow)
+        .cornerRadius(12)
+    }
+    
+    private func hudStat(label: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label)
+                .font(StitchTypography.labelSmall)
+                .foregroundColor(StitchTheme.onSurfaceVariant)
+            Text(value)
+                .font(StitchTypography.label)
+                .foregroundColor(StitchTheme.onSurface)
+                .tracking(1)
+        }
+    }
+    
+    private func entryButton(title: String, subtitle: String, icon: String, color: Color, textColor: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 20) {
+                Image(systemName: icon)
+                    .font(.title)
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(subtitle)
+                        .font(StitchTypography.labelSmall)
+                        .opacity(0.8)
+                    Text(title)
+                        .font(StitchTypography.dataMedium)
+                }
+            }
+            .foregroundColor(textColor)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(24)
+            .background(color)
+            .cornerRadius(12)
+        }
     }
 }

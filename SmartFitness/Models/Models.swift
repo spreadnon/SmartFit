@@ -3,42 +3,129 @@ import SwiftUI
 
 // MARK: - App Global State
 class AppData: ObservableObject {
-    @Published var currentPlan: TrainingPlan? {
+    @Published var aiSmartPlan: TrainingPlan? {
         didSet {
             savePlan()
+            if aiSmartPlan != nil {
+                manualPlan = nil
+            }
         }
     }
-    @Published var todayExercises: [Exercise] = []
+    @Published var manualPlan: TrainingPlan? {
+        didSet {
+            savePlan()
+            if manualPlan != nil {
+                aiSmartPlan = nil
+            }
+        }
+    }
     @Published var records: [TrainingRecord] = []
+    @Published var selectedTab: Int = 0
+    @Published var replacementTargetId: UUID? = nil
     
     private let planKey = "saved_training_plan"
+    private let manualPlanKey = "saved_manual_plan"
     
     init() {
         loadPlan()
     }
     
     func addToToday(exercises: [Exercise]) {
-        self.todayExercises = exercises
+        self.manualPlan = TrainingPlan(
+            trainingSplit: "MANUAL",
+            instructions: "CUSTOM SESSION",
+            days: [TrainingDay(label: "TODAY", exercises: exercises)]
+        )
+        self.aiSmartPlan = nil
+    }
+    
+    func convertLibraryExercises(_ libraryExercises: [LibraryExercise]) -> [Exercise] {
+        return libraryExercises.enumerated().map { index, lib in
+            Exercise(
+                order: index + 1,
+                exerciseName: lib.nameCN,
+                sets: 3, // Default sets
+                reps: "12", // Default reps
+                equipment: lib.equipment ?? "None",
+                difficulty: lib.level,
+                images: lib.images,
+                instructions: lib.instructions.joined(separator: "\n"),
+                focusArea: lib.primaryMuscles.joined(separator: ", ")
+            )
+        }
+    }
+    
+    func replaceExercise(targetId: UUID, with newLibEx: LibraryExercise) {
+        let converted = convertLibraryExercises([newLibEx]).first!
+        
+        // 1. Check in current AI Plan
+        if var plan = aiSmartPlan {
+            var updated = false
+            for dayIndex in 0..<plan.days.count {
+                if let exIndex = plan.days[dayIndex].exercises.firstIndex(where: { $0.id == targetId }) {
+                    plan.days[dayIndex].exercises[exIndex] = converted
+                    updated = true
+                    break
+                }
+            }
+            if updated {
+                self.aiSmartPlan = plan // Triggers didSet/save
+                return
+            }
+        }
+        
+        // 2. Check in Today's Manual Exercises
+        if var plan = manualPlan {
+            var updated = false
+            for dayIndex in 0..<plan.days.count {
+                if let exIndex = plan.days[dayIndex].exercises.firstIndex(where: { $0.id == targetId }) {
+                    plan.days[dayIndex].exercises[exIndex] = converted
+                    updated = true
+                    break
+                }
+            }
+            if updated {
+                self.manualPlan = plan // Triggers didSet/save
+                return
+            }
+        }
     }
     
     func resetPlan() {
-        self.currentPlan = nil
-        self.todayExercises = []
+        self.aiSmartPlan = nil
+        self.manualPlan = nil
         UserDefaults.standard.removeObject(forKey: planKey)
+        UserDefaults.standard.removeObject(forKey: manualPlanKey)
     }
     
     private func savePlan() {
-        if let plan = currentPlan {
+        if let plan = aiSmartPlan {
             if let encoded = try? JSONEncoder().encode(plan) {
                 UserDefaults.standard.set(encoded, forKey: planKey)
             }
+        } else {
+            UserDefaults.standard.removeObject(forKey: planKey)
+        }
+        
+        if let plan = manualPlan {
+            if let encoded = try? JSONEncoder().encode(plan) {
+                UserDefaults.standard.set(encoded, forKey: manualPlanKey)
+            }
+        } else {
+            UserDefaults.standard.removeObject(forKey: manualPlanKey)
         }
     }
     
     private func loadPlan() {
         if let data = UserDefaults.standard.data(forKey: planKey) {
             if let decoded = try? JSONDecoder().decode(TrainingPlan.self, from: data) {
-                self.currentPlan = decoded
+                self.aiSmartPlan = decoded
+            }
+        }
+        
+        if let data = UserDefaults.standard.data(forKey: manualPlanKey) {
+            if let decoded = try? JSONDecoder().decode(TrainingPlan.self, from: data) {
+                self.manualPlan = decoded
             }
         }
     }
@@ -212,6 +299,10 @@ struct Exercise: Identifiable, Codable, Equatable {
         let totalReps = completedSets.reduce(0) { $0 + $1.reps }
         return Double(totalReps) / Double(completedSets.count)
     }
+    
+    var isCompleted: Bool {
+        !exerciseSets.isEmpty && exerciseSets.allSatisfy { $0.isCompleted }
+    }
 }
 
 struct TrainingDay: Identifiable, Codable {
@@ -223,6 +314,10 @@ struct TrainingDay: Identifiable, Codable {
         self.id = id
         self.label = label
         self.exercises = exercises
+    }
+    
+    var isCompleted: Bool {
+        !exercises.isEmpty && exercises.allSatisfy { $0.isCompleted }
     }
 }
 
