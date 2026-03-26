@@ -29,15 +29,15 @@ struct TrainingPlanListView: View {
                                     .foregroundColor(StitchTheme.onSurfaceVariant)
                                     .tracking(2)
                                 
-                                Text("训练计划")
+                                Text("TRAINING PLAN")
                                     .font(StitchTypography.headline)
                                     .foregroundColor(StitchTheme.onSurface)
                             }
                             Spacer()
                         }
                         
-                        if let plan = appData.aiSmartPlan, let day = plan.days.first, !day.isCompleted {
-                            // AI Plan Current Day
+                        if let plan = appData.aiSmartPlan ?? appData.manualPlan, let day = plan.days.first, !day.isCompleted {
+                            // AI or Manual Plan Current Day
                             aiPlanArrangementCard(plan: plan, day: day)
                         } else {
                             // Empty State
@@ -47,7 +47,7 @@ struct TrainingPlanListView: View {
                         // Quick Entry Actions (Ignition Blocks)
                         HStack(spacing: 16) {
                             entryButton(
-                                title: "AI 生成",
+                                title: "AI GEN",
                                 subtitle: "SMART GEN",
                                 icon: "sparkles",
                                 color: StitchTheme.primaryContainer,
@@ -57,7 +57,7 @@ struct TrainingPlanListView: View {
                             }
                             
                             entryButton(
-                                title: "手动选择",
+                                title: "MANUAL",
                                 subtitle: "MANUAL",
                                 icon: "plus.circle",
                                 color: StitchTheme.surfaceContainerHigh,
@@ -147,14 +147,14 @@ struct TrainingPlanListView: View {
     
     private func aiPlanArrangementCard(plan: TrainingPlan, day: TrainingDay) -> some View {
         let index = plan.days.firstIndex(where: { $0.id == day.id }) ?? 0
-        let playName = "AI智能计划"
+        let playName = plan.trainingSplit == "MANUAL" ? NSLocalizedString("手动训练计划", comment: "") : NSLocalizedString("AI智能计划", comment: "")
         
         return NavigationLink(destination: TrainingPlanDetailView(plan: plan, selectedDayIndex: index)) {
             VStack(alignment: .leading, spacing: 24) {
                 HStack {
                    
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("正在进行")
+                        Text("IN PROGRESS")
                             .font(StitchTypography.labelSmall)
                             .foregroundColor(StitchTheme.onSurfaceVariant)
                         Text(playName)
@@ -171,9 +171,9 @@ struct TrainingPlanListView: View {
                 }
                 
                 HStack(spacing: 32) {
-                    hudStat(label: "动作", value: "\(day.exercises.count)")
-                    hudStat(label: "时间", value: "45M")
-                    hudStat(label: "部位", value: plan.trainingSplit.uppercased())
+                    hudStat(label: "EXERCISES", value: "\(day.exercises.count)")
+                    hudStat(label: "TIME", value: "45M")
+                    hudStat(label: "AREA", value: plan.trainingSplit.uppercased())
                 }
             }
             .padding(24)
@@ -190,10 +190,10 @@ struct TrainingPlanListView: View {
                 .foregroundColor(StitchTheme.onSurfaceVariant.opacity(0.3))
             
             VStack(spacing: 8) {
-                Text("没有可用的训练计划")
+                Text("NO ACTIVE TRAINING PLAN")
                     .font(StitchTypography.dataMedium)
                     .foregroundColor(StitchTheme.onSurface)
-                Text("生成智能计划或手动选择开始")
+                Text("GENERATE AI PLAN OR SELECT MANUALLY")
                     .font(StitchTypography.labelSmall)
                     .foregroundColor(StitchTheme.onSurfaceVariant)
                     .multilineTextAlignment(.center)
@@ -205,7 +205,7 @@ struct TrainingPlanListView: View {
         .cornerRadius(12)
     }
     
-    private func hudStat(label: String, value: String) -> some View {
+    private func hudStat(label: LocalizedStringKey, value: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(label)
                 .font(StitchTypography.labelSmall)

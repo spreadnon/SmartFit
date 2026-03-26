@@ -10,6 +10,11 @@ struct TrainingPlanDetailView: View {
     
     @State private var selectedExercise: Exercise? = nil
     
+    // Timer properties
+    @State private var startTime = Date()
+    @State private var sessionDuration: TimeInterval = 0
+    private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+    
     init(plan: TrainingPlan, selectedDayIndex: Int) {
         self.plan = plan
         self._selectedDayIndex = State(initialValue: selectedDayIndex)
@@ -19,8 +24,8 @@ struct TrainingPlanDetailView: View {
     init(exercises: [Exercise]) {
         self.plan = TrainingPlan(
             trainingSplit: "MANUAL",
-            instructions: "CUSTOM SESSION",
-            days: [TrainingDay(label: "TODAY", exercises: exercises)]
+            instructions: NSLocalizedString("CUSTOM SESSION", comment: ""),
+            days: [TrainingDay(label: NSLocalizedString("TODAY", comment: ""), exercises: exercises)]
         )
         self._selectedDayIndex = State(initialValue: 0)
         self._activePlanType = State(initialValue: 1)
@@ -41,8 +46,28 @@ struct TrainingPlanDetailView: View {
                 }
             }
         }
-        .navigationTitle(activePlanType == 0 ? (appData.aiSmartPlan?.trainingSplit ?? plan.trainingSplit) : "MANUAL SESSION")
+        .navigationTitle(activePlanType == 0 ? (appData.aiSmartPlan?.trainingSplit ?? plan.trainingSplit) : NSLocalizedString("MANUAL SESSION", comment: ""))
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                HStack(spacing: 4) {
+                    Image(systemName: "timer")
+                    Text(formatDuration(sessionDuration))
+                        .monospacedDigit()
+                }
+                .font(StitchTypography.label)
+                .foregroundColor(StitchTheme.primaryContainer)
+            }
+        }
+        .onReceive(timer) { _ in
+            sessionDuration = Date().timeIntervalSince(startTime)
+        }
+        .onAppear {
+            startTime = Date()
+        }
+        .onDisappear {
+            saveSession()
+        }
         .toolbarColorScheme(.dark, for: .navigationBar)
         .toolbarBackground(StitchTheme.background.opacity(0.8), for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
@@ -50,6 +75,35 @@ struct TrainingPlanDetailView: View {
             ExerciseDetailSheet(exercise: exercise)
         }
         .preferredColorScheme(.dark)
+    }
+    
+    private func formatDuration(_ duration: TimeInterval) -> String {
+        let hours = Int(duration) / 3600
+        let minutes = Int(duration) / 60 % 60
+        let seconds = Int(duration) % 60
+        if hours > 0 {
+            return String(format: "%02d:%02d:%02d", hours, minutes, seconds)
+        } else {
+            return String(format: "%02d:%02d", minutes, seconds)
+        }
+    }
+    
+    private func saveSession() {
+        let exercises: [Exercise]
+        let focusArea: String
+        
+        if activePlanType == 0 {
+            let dayIndex = min(selectedDayIndex, (appData.aiSmartPlan ?? plan).days.count - 1)
+            exercises = (appData.aiSmartPlan ?? plan).days[dayIndex].exercises
+            focusArea = (appData.aiSmartPlan ?? plan).trainingSplit
+        } else {
+            exercises = appData.manualPlan?.days.first?.exercises ?? []
+            focusArea = "CUSTOM"
+        }
+        
+        if !exercises.isEmpty {
+            appData.saveSessionRecord(exercises: exercises, focusArea: focusArea, duration: sessionDuration)
+        }
     }
     
     @ViewBuilder
@@ -150,12 +204,17 @@ struct TrainingPlanDetailView: View {
                 }
             } else {
                 // 2. Manual Exercises Binding
-                if appData.manualPlan.isEmpty {
-                    emptyManualState
-                } else {
-                    ForEach($appData.manualPlan) { $exercise in
-                        ExerciseCard(exercise: $exercise)
+                if let manualPlan = appData.manualPlan, !manualPlan.days.isEmpty {
+                    let planBinding = Binding(
+                        get: { appData.manualPlan ?? manualPlan },
+                        set: { appData.manualPlan = $0 }
+                    )
+                    let exercises = planBinding.days[0].exercises
+                    ForEach(exercises.indices, id: \.self) { idx in
+                        ExerciseCard(exercise: planBinding.days[0].exercises[idx])
                     }
+                } else {
+                    emptyManualState
                 }
             }
         }
@@ -198,7 +257,7 @@ struct TrainingPlanDetailView: View {
     private func isDayCompleted(index: Int) -> Bool {
         if activePlanType == 1 {
             // Manual Mode
-            return !appData.manualPlan.isEmpty && appData.manualPlan.allSatisfy { $0.isCompleted }
+            return appData.manualPlan?.days.first?.isCompleted ?? false
         }
         
         let activePlan = appData.aiSmartPlan ?? plan

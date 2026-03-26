@@ -8,7 +8,7 @@ struct TrainingRecordView: View {
     private var monthYearString: String {
         let formatter = DateFormatter()
         formatter.dateFormat = "MMMM yyyy"
-        formatter.locale = Locale(identifier: "en_US")
+        formatter.locale = Locale.current
         return formatter.string(from: selectedDate).uppercased()
     }
     
@@ -25,12 +25,10 @@ struct TrainingRecordView: View {
                         calendarSection
                         
                         VStack(spacing: 24) {
-                            detailsSection
+//                            detailsSection
                             
-                            // Today's specific summary if selected date is today
-                            if Calendar.current.isDateInToday(selectedDate) {
-                                todaySummarySection
-                            }
+                            // Summary for selected date
+                            todaySummarySection
                         }
                     }
                     .padding(.top, 8)
@@ -124,23 +122,25 @@ struct TrainingRecordView: View {
             
             // Calendar Grid
             let columns = Array(repeating: GridItem(.flexible(), spacing: 8), count: 7)
+            let daysInMonth = getDaysInMonth(for: selectedDate)
+            
             LazyVGrid(columns: columns, spacing: 12) {
-                // Mock generating days for the current view month
-                // For simplicity in UI implementation, we'll keep the 31 iteration but use real date logic for dots
-                ForEach(1...31, id: \.self) { day in
-                    let isToday = day == Calendar.current.component(.day, from: Date()) && Calendar.current.isDate(selectedDate, equalTo: Date(), toGranularity: .month)
-                    let isSelected = day == Calendar.current.component(.day, from: selectedDate)
-                    let record = appData.records.first(where: { Calendar.current.component(.day, from: $0.date) == day })
+                ForEach(daysInMonth, id: \.self) { date in
+                    let isSelected = Calendar.current.isDate(date, inSameDayAs: selectedDate)
+                    let isToday = Calendar.current.isDateInToday(date)
+                    let dayNum = Calendar.current.component(.day, from: date)
+                    
+                    let record = appData.records.first(where: { rec in
+                        Calendar.current.isDate(rec.date, inSameDayAs: date)
+                    })
                     
                     Button(action: {
-                        if let newDate = Calendar.current.date(bySetting: .day, value: day, of: selectedDate) {
-                            withAnimation(.easeInOut) {
-                                selectedDate = newDate
-                            }
+                        withAnimation(.easeInOut) {
+                            selectedDate = date
                         }
                     }) {
                         VStack(spacing: 6) {
-                            Text("\(day)")
+                            Text("\(dayNum)")
                                 .font(StitchTypography.bodyBold)
                                 .foregroundColor(isSelected ? StitchTheme.background : (isToday ? StitchTheme.primaryContainer : StitchTheme.onSurface))
                             
@@ -173,6 +173,16 @@ struct TrainingRecordView: View {
         .padding(.horizontal, 24)
     }
     
+    private func getDaysInMonth(for date: Date) -> [Date] {
+        guard let range = Calendar.current.range(of: .day, in: .month, for: date),
+              let startOfMonth = Calendar.current.date(from: Calendar.current.dateComponents([.year, .month], from: date))
+        else { return [] }
+        
+        return range.compactMap { day in
+            Calendar.current.date(byAdding: .day, value: day - 1, to: startOfMonth)
+        }
+    }
+    
     @ViewBuilder
     private var detailsSection: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -191,7 +201,7 @@ struct TrainingRecordView: View {
                         .cornerRadius(2)
                     
                     VStack(alignment: .leading, spacing: 8) {
-                        Text(record.isCompleted ? "COMPLETED: \(record.focusArea)" : "INCOMPLETE: \(record.focusArea)")
+                        Text(record.isCompleted ? "\(NSLocalizedString("COMPLETED: ", comment: ""))\(record.focusArea)" : "\(NSLocalizedString("INCOMPLETE: ", comment: ""))\(record.focusArea)")
                             .font(StitchTypography.dataMedium)
                             .italic()
                             .foregroundColor(StitchTheme.onSurface)
@@ -219,25 +229,36 @@ struct TrainingRecordView: View {
     
     @ViewBuilder
     private var todaySummarySection: some View {
+        summaryContentForDate(selectedDate)
+    }
+    
+    @ViewBuilder
+    private func summaryContentForDate(_ date: Date) -> some View {
+        let isToday = Calendar.current.isDateInToday(date)
+        let record = appData.records.first(where: { Calendar.current.isDate($0.date, inSameDayAs: date) })
+        
         VStack(alignment: .leading, spacing: 16) {
-            Text("TODAY'S SUMMARY")
+            Text(isToday ? "TODAY SUMMARY" : "DAILY SUMMARY")
                 .font(StitchTypography.label)
                 .tracking(2.0)
                 .foregroundColor(StitchTheme.onSurfaceVariant)
                 .padding(.horizontal, 24)
             
             VStack(alignment: .leading, spacing: 12) {
-                if !appData.manualPlan.isEmpty {
-                    SummaryRow(title: "CURRENT ARRANGEMENT", value: "\(appData.manualPlan.count) EXERCISES")
-                    SummaryRow(title: "SOURCE", value: "MANUAL SELECTION")
-                } else if let plan = appData.aiSmartPlan {
-                    SummaryRow(title: "CURRENT ARRANGEMENT", value: "AI SMART PLAN")
-                    SummaryRow(title: "SPLIT", value: plan.trainingSplit)
+                if let record = record {
+                    // Pre-recorded focus area is already localized or should be
+                    summaryRows(exercises: record.exercises, source: record.focusArea, duration: record.duration)
+                } else if isToday {
+                    // 如果是今天且没有记录，才显示活跃计划
+                    if let manualPlan = appData.manualPlan, let exercises = manualPlan.days.first?.exercises {
+                        summaryRows(exercises: exercises, source: NSLocalizedString("MANUAL PLAN", comment: ""))
+                    } else if let plan = appData.aiSmartPlan, let exercises = plan.days.first?.exercises {
+                        summaryRows(exercises: exercises, source: NSLocalizedString("AI SMART PLAN", comment: ""), extra: plan.trainingSplit)
+                    } else {
+                        noDataText("NO ACTIVE TRAINING PLAN")
+                    }
                 } else {
-                    Text("NO ACTIVE TRAINING PLAN FOR TODAY")
-                        .font(StitchTypography.body)
-                        .foregroundColor(StitchTheme.outline)
-                        .italic()
+                    noDataText("NO RECORD FOR THIS DAY")
                 }
             }
             .padding(20)
@@ -246,6 +267,46 @@ struct TrainingRecordView: View {
             .cornerRadius(12)
             .padding(.horizontal, 24)
         }
+    }
+    
+    @ViewBuilder
+    private func summaryRows(exercises: [Exercise], source: String, extra: String? = nil, duration: TimeInterval? = nil) -> some View {
+        SummaryRow(title: "EXERCISE PLAN", value: "\(exercises.count) EXERCISES")
+        SummaryRow(title: "PLAN SOURCE", value: source)
+        if let extra = extra {
+            SummaryRow(title: "FOCUS AREA", value: extra)
+        }
+        
+        let totalWeight = exercises.reduce(0.0) { $0 + $1.totalVolume }
+        let totalSets = exercises.reduce(0) { $0 + $1.exerciseSets.count }
+        
+        SummaryRow(title: "TOTAL VOLUME", value: String(format: "%.1f KG", totalWeight))
+        SummaryRow(title: "TOTAL SETS", value: String(format: NSLocalizedString(" %lld SETS", comment: ""), totalSets))
+        
+        if let duration = duration, duration > 0 {
+            SummaryRow(title: "ACTUAL DURATION", value: formatDuration(duration))
+        } else {
+            SummaryRow(title: "ESTIMATED TIME", value: "45 MIN")
+        }
+    }
+    
+    private func formatDuration(_ duration: TimeInterval) -> String {
+        let hours = Int(duration) / 3600
+        let minutes = Int(duration) / 60 % 60
+        let seconds = Int(duration) % 60
+        if hours > 0 {
+            return String(format: "%02d:%02d:%02d", hours, minutes, seconds)
+        } else {
+            return String(format: "%02d:%02d", minutes, seconds)
+        }
+    }
+    
+    @ViewBuilder
+    private func noDataText(_ text: String) -> some View {
+        Text(text)
+            .font(StitchTypography.body)
+            .foregroundColor(StitchTheme.outline)
+            .italic()
     }
 }
 

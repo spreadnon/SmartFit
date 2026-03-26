@@ -19,22 +19,28 @@ class AppData: ObservableObject {
             }
         }
     }
-    @Published var records: [TrainingRecord] = []
+    @Published var records: [TrainingRecord] = [] {
+        didSet {
+            saveRecords()
+        }
+    }
     @Published var selectedTab: Int = 0
     @Published var replacementTargetId: UUID? = nil
     
     private let planKey = "saved_training_plan"
     private let manualPlanKey = "saved_manual_plan"
+    private let recordsKey = "saved_training_records"
     
     init() {
         loadPlan()
+        loadRecords()
     }
     
     func addToToday(exercises: [Exercise]) {
         self.manualPlan = TrainingPlan(
             trainingSplit: "MANUAL",
-            instructions: "CUSTOM SESSION",
-            days: [TrainingDay(label: "TODAY", exercises: exercises)]
+            instructions: NSLocalizedString("CUSTOM SESSION", comment: ""),
+            days: [TrainingDay(label: NSLocalizedString("TODAY", comment: ""), exercises: exercises)]
         )
         self.aiSmartPlan = nil
     }
@@ -98,6 +104,45 @@ class AppData: ObservableObject {
         UserDefaults.standard.removeObject(forKey: manualPlanKey)
     }
     
+    func saveSessionRecord(exercises: [Exercise], focusArea: String, duration: TimeInterval) {
+        // 记录当天训练，如果已存在则更新并累加时长
+        if let index = records.firstIndex(where: { Calendar.current.isDate($0.date, inSameDayAs: Date()) }) {
+            let oldRecord = records[index]
+            let updatedRecord = TrainingRecord(
+                id: oldRecord.id,
+                date: oldRecord.date,
+                focusArea: focusArea, // Keep latest focus area or use old? Let's use focusArea which is passed
+                exercises: exercises, // Use latest exercise states (sets/reps etc)
+                duration: oldRecord.duration + duration,
+                isCompleted: exercises.allSatisfy { $0.isCompleted }
+            )
+            records[index] = updatedRecord
+        } else {
+            let record = TrainingRecord(
+                date: Date(),
+                focusArea: focusArea,
+                exercises: exercises,
+                duration: duration,
+                isCompleted: exercises.allSatisfy { $0.isCompleted }
+            )
+            records.append(record)
+        }
+    }
+    
+    private func saveRecords() {
+        if let encoded = try? JSONEncoder().encode(records) {
+            UserDefaults.standard.set(encoded, forKey: recordsKey)
+        }
+    }
+    
+    private func loadRecords() {
+        if let data = UserDefaults.standard.data(forKey: recordsKey) {
+            if let decoded = try? JSONDecoder().decode([TrainingRecord].self, from: data) {
+                self.records = decoded
+            }
+        }
+    }
+    
     private func savePlan() {
         if let plan = aiSmartPlan {
             if let encoded = try? JSONEncoder().encode(plan) {
@@ -156,7 +201,7 @@ struct PlanResponse: Codable {
             return TrainingDay(label: dailyPlan.trainingDay, exercises: exercises)
         }
         
-        return TrainingPlan(trainingSplit: data.training_split, instructions: "根据您的需求智能生成的个性化计划", days: days)
+        return TrainingPlan(trainingSplit: data.training_split, instructions: NSLocalizedString("根据您的需求智能生成的个性化计划", comment: ""), days: days)
     }
 }
 
@@ -199,41 +244,77 @@ struct APIExercise: Codable {
 // MARK: - App Internal Models
 
 enum TrainingLevel: String, CaseIterable, Codable {
-    case novice = "新手"
-    case intermediate = "中级"
-    case advanced = "高手"
+    case novice = "novice"
+    case intermediate = "intermediate"
+    case advanced = "advanced"
+    
+    var localizedName: String {
+        switch self {
+        case .novice: return NSLocalizedString("新手", comment: "")
+        case .intermediate: return NSLocalizedString("中级", comment: "")
+        case .advanced: return NSLocalizedString("高手", comment: "")
+        }
+    }
     
     var description: String {
         switch self {
-        case .novice: return "注重基础动作，较低强度"
-        case .intermediate: return "增加负荷，中等强度"
-        case .advanced: return "每组 6-8 次，4 组，高强度"
+        case .novice: return NSLocalizedString("注重基础动作，较低强度", comment: "")
+        case .intermediate: return NSLocalizedString("增加负荷，中等强度", comment: "")
+        case .advanced: return NSLocalizedString("每组 6-8 次，4 组，高强度", comment: "")
         }
     }
 }
 
 enum TrainingFrequency: String, CaseIterable, Codable {
-    case three = "每周 3 练"
-    case four = "每周 4 练"
-    case five = "每周 5 练"
-    case six = "每周 6 练"
+    case three = "three"
+    case four = "four"
+    case five = "five"
+    case six = "six"
+    
+    var localizedName: String {
+        switch self {
+        case .three: return NSLocalizedString("每周 3 练", comment: "")
+        case .four: return NSLocalizedString("每周 4 练", comment: "")
+        case .five: return NSLocalizedString("每周 5 练", comment: "")
+        case .six: return NSLocalizedString("每周 6 练", comment: "")
+        }
+    }
 }
 
 enum TrainingScene: String, CaseIterable, Codable {
-    case gym = "健身房"
-    case home = "居家"
-    case outdoor = "户外"
+    case gym = "gym"
+    case home = "home"
+    case outdoor = "outdoor"
+    
+    var localizedName: String {
+        switch self {
+        case .gym: return NSLocalizedString("健身房", comment: "")
+        case .home: return NSLocalizedString("居家", comment: "")
+        case .outdoor: return NSLocalizedString("户外", comment: "")
+        }
+    }
 }
 
 enum Injury: String, CaseIterable, Codable, Identifiable {
-    case shoulder = "肩伤"
-    case waist = "腰伤"
-    case knee = "膝伤"
-    case wrist = "腕伤"
-    case elbow = "肘伤"
-    case none = "无"
+    case shoulder = "shoulder"
+    case waist = "waist"
+    case knee = "knee"
+    case wrist = "wrist"
+    case elbow = "elbow"
+    case none = "none"
     
     var id: String { self.rawValue }
+    
+    var localizedName: String {
+        switch self {
+        case .shoulder: return NSLocalizedString("肩伤", comment: "")
+        case .waist: return NSLocalizedString("腰伤", comment: "")
+        case .knee: return NSLocalizedString("膝伤", comment: "")
+        case .wrist: return NSLocalizedString("腕伤", comment: "")
+        case .elbow: return NSLocalizedString("肘伤", comment: "")
+        case .none: return NSLocalizedString("无", comment: "")
+        }
+    }
 }
 
 struct ExerciseSet: Identifiable, Codable, Equatable {
@@ -341,12 +422,16 @@ struct TrainingRecord: Identifiable, Codable {
     let id: UUID
     let date: Date
     let focusArea: String
+    let exercises: [Exercise]
+    let duration: TimeInterval
     let isCompleted: Bool
     
-    init(id: UUID = UUID(), date: Date, focusArea: String, isCompleted: Bool) {
+    init(id: UUID = UUID(), date: Date, focusArea: String, exercises: [Exercise], duration: TimeInterval = 0, isCompleted: Bool) {
         self.id = id
         self.date = date
         self.focusArea = focusArea
+        self.exercises = exercises
+        self.duration = duration
         self.isCompleted = isCompleted
     }
 }

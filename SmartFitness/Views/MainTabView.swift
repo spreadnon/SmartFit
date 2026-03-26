@@ -10,7 +10,7 @@ struct MainTabView: View {
                 TrainingPlanListView()
             }
             .tabItem {
-                Label("训练计划", systemImage: "figure.strengthtraining.traditional")
+                Label("TRAINING PLAN", systemImage: "figure.strengthtraining.traditional")
             }
             .tag(0)
             
@@ -18,13 +18,13 @@ struct MainTabView: View {
                 ExerciseLibraryView()//TodayTrainingView()
             }
             .tabItem {
-                Label("今日训练", systemImage: "plus.circle")
+                Label("TODAY TRAINING", systemImage: "plus.circle")
             }
             .tag(1)
             
             TrainingRecordView()
                 .tabItem {
-                    Label("训练记录", systemImage: "calendar")
+                    Label("HISTORY", systemImage: "calendar")
                 }
                 .tag(2)
             
@@ -45,37 +45,43 @@ struct TodayTrainingView: View {
     
     var body: some View {
         ZStack {
-            Theme.background.ignoresSafeArea()
+            StitchTheme.background.ignoresSafeArea()
             
-            if appData.manualPlan.isEmpty {
+            if appData.manualPlan == nil || (appData.manualPlan?.days.first?.exercises.isEmpty ?? true) {
                 VStack(spacing: 20) {
                     Image(systemName: "figure.strengthtraining.traditional")
                         .font(.system(size: 60))
-                        .foregroundColor(Theme.textSecondary)
-                    Text("今日还没有添加训练计划哦")
-                        .font(Theme.Typography.title2)
-                        .foregroundColor(Theme.textSecondary)
-                    Text("请到「训练计划」页面添加今日内容")
-                        .font(Theme.Typography.body)
-                        .foregroundColor(Theme.textSecondary)
+                        .foregroundColor(StitchTheme.onSurfaceVariant)
+                    Text("NO TRAINING PLAN ADDED TODAY")
+                        .font(StitchTypography.dataMedium)
+                        .foregroundColor(StitchTheme.onSurfaceVariant)
+                    Text("PLEASE ADD TASKS IN TRAINING PLAN")
+                        .font(StitchTypography.body)
+                        .foregroundColor(StitchTheme.onSurfaceVariant)
                 }
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
-                        Text("🔥 今日训练挑战")
-                            .font(Theme.Typography.title1)
-                            .foregroundColor(Theme.textPrimary)
+                        Text("🔥 TODAY'S CHALLENGE")
+                            .font(StitchTypography.headline)
+                            .foregroundColor(StitchTheme.onSurface)
                             .padding(.top, 16)
                         
-                        ForEach($appData.manualPlan) { $exercise in
-                            ExerciseCard(exercise: $exercise)
+                        if let manualPlan = appData.manualPlan {
+                            let planBinding = Binding(
+                                get: { appData.manualPlan ?? manualPlan },
+                                set: { appData.manualPlan = $0 }
+                            )
+                            ForEach(planBinding.days[0].exercises.indices, id: \.self) { idx in
+                                ExerciseCard(exercise: planBinding.days[0].exercises[idx])
+                            }
                         }
                     }
                     .padding(.horizontal, 20)
                 }
             }
         }
-        .navigationTitle("今日训练")
+        .navigationTitle("TODAY TRAINING")
         .navigationBarTitleDisplayMode(.inline)
     }
 }
@@ -84,8 +90,8 @@ struct MeView: View {
     var body: some View {
         ZStack {
             Theme.background.ignoresSafeArea()
-            Text("我的 (开发中)")
-                .foregroundColor(Theme.textPrimary)
+            Text("ME (COMING SOON)")
+                .foregroundColor(StitchTheme.onSurface)
         }
     }
 }

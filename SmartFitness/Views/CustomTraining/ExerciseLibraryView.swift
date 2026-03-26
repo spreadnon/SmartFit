@@ -24,6 +24,7 @@ struct ExerciseLibraryView: View {
             VStack(spacing: 0) {
                 // Header
                 headerSection
+                    .padding(.bottom, 8)
                 
                 // Content
                 ScrollView {
@@ -56,7 +57,7 @@ struct ExerciseLibraryView: View {
     private var headerSection: some View {
         HStack(alignment: .bottom) {
             VStack(alignment: .leading, spacing: 4) {
-                Text(appData.replacementTargetId != nil ? "REPLACEMENT MODE" : "LIBRARY")
+                Text(appData.replacementTargetId != nil ? NSLocalizedString("REPLACEMENT MODE", comment: "") : NSLocalizedString("LIBRARY", comment: ""))
                     .font(StitchTypography.headlineLarge)
                     .italic()
                     .foregroundColor(StitchTheme.primaryContainer)
@@ -64,7 +65,7 @@ struct ExerciseLibraryView: View {
             Spacer()
             
             if !selectedExercises.isEmpty {
-                Text("SELECTED: \(selectedExercises.count)")
+                Text("\(NSLocalizedString("SELECTED: ", comment: ""))\(selectedExercises.count)")
                     .font(StitchTypography.label)
                     .foregroundColor(StitchTheme.primaryContainer)
                     .padding(.bottom, 8)
@@ -90,7 +91,7 @@ struct ExerciseLibraryView: View {
         HStack {
             Image(systemName: "magnifyingglass")
                 .foregroundColor(StitchTheme.onSurfaceVariant)
-            TextField("SEARCH EXERCISES...", text: $searchText)
+            TextField(NSLocalizedString("SEARCH EXERCISES...", comment: ""), text: $searchText)
                 .font(StitchTypography.label)
                 .tracking(1.0)
                 .foregroundColor(StitchTheme.onSurface)
@@ -112,7 +113,7 @@ struct ExerciseLibraryView: View {
                             selectedCategory = category
                         }
                     } label: {
-                        Text(category)
+                        Text(LocalizedStringKey(category))
                             .font(StitchTypography.label)
                             .tracking(1.5)
                             .padding(.horizontal, 24)
@@ -183,10 +184,11 @@ struct ExerciseLibraryView: View {
                 selectedExercises = []
             }) {
                 HStack(spacing: 12) {
-                    let title = appData.replacementTargetId != nil ? "CONFIRM REPLACEMENT" : "CONFIRM SELECTION (\(selectedExercises.count))"
-                    Text(title)
-                        .font(StitchTypography.label)
-                        .tracking(2.0)
+                    if appData.replacementTargetId != nil {
+                        Text("CONFIRM REPLACEMENT")
+                    } else {
+                        Text(LocalizedStringKey("CONFIRM SELECTION (\(selectedExercises.count))"))
+                    }
                     Image(systemName: "checkmark.circle.fill")
                 }
                 .foregroundColor(StitchTheme.onPrimaryFixed)
@@ -252,7 +254,7 @@ struct LibraryExerciseCard: View {
                     .tracking(2.0)
                     .foregroundColor(isSelected ? StitchTheme.primaryContainer : StitchTheme.secondary)
                 
-                Text(exercise.nameCN.uppercased())
+                Text(exercise.displayName.uppercased())
                     .font(StitchTypography.bodyBold)
                     .italic()
                     .lineLimit(2)
@@ -263,7 +265,7 @@ struct LibraryExerciseCard: View {
                     Image(systemName: "fitness.center")
                         .font(.system(size: 10))
                         .foregroundColor(StitchTheme.onSurfaceVariant)
-                    Text(exercise.equipment?.uppercased() ?? "BODY ONLY")
+                    Text(LocalizedStringKey(exercise.equipment?.uppercased() ?? "BODY ONLY"))
                         .font(StitchTypography.labelSmall)
                         .foregroundColor(StitchTheme.onSurfaceVariant)
                 }

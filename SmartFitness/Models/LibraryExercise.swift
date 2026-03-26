@@ -14,6 +14,12 @@ struct LibraryExercise: Identifiable, Codable, Equatable {
     let category: String
     let images: [String]
     
+    // Helper to get localized name
+    var displayName: String {
+        let locale = Locale.current.language.languageCode?.identifier ?? "en"
+        return locale.contains("zh") ? nameCN : name
+    }
+    
     // Helper to get formatted primary muscles
     var muscleLabel: String {
         primaryMuscles.joined(separator: " / ").uppercased()

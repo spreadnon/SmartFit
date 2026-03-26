@@ -59,7 +59,7 @@ struct GeneratePlanView: View {
                             HStack(spacing: 8) {
                                 ForEach(TrainingLevel.allCases, id: \.self) { level in
                                     selectorButton(
-                                        title: level.rawValue.uppercased(),
+                                        title: level.localizedName.uppercased(),
                                         isSelected: selectedLevel == level
                                     ) {
                                         selectedLevel = level
@@ -73,7 +73,7 @@ struct GeneratePlanView: View {
                             HStack(spacing: 8) {
                                 ForEach(TrainingFrequency.allCases, id: \.self) { freq in
                                     selectorButton(
-                                        title: freq.rawValue.uppercased(),
+                                        title: freq.localizedName.uppercased(),
                                         isSelected: selectedFrequency == freq
                                     ) {
                                         selectedFrequency = freq
@@ -87,7 +87,7 @@ struct GeneratePlanView: View {
                             HStack(spacing: 8) {
                                 ForEach(TrainingScene.allCases, id: \.self) { scene in
                                     selectorButton(
-                                        title: scene.rawValue.uppercased(),
+                                        title: scene.localizedName.uppercased(),
                                         isSelected: selectedScene == scene
                                     ) {
                                         selectedScene = scene
@@ -102,7 +102,7 @@ struct GeneratePlanView: View {
                             LazyVGrid(columns: columns, spacing: 12) {
                                 ForEach(Injury.allCases, id: \.self) { injury in
                                     selectorButton(
-                                        title: injury.rawValue.uppercased(),
+                                        title: injury.localizedName.uppercased(),
                                         isSelected: selectedInjuries.contains(injury),
                                         isSmall: true
                                     ) {
@@ -121,7 +121,7 @@ struct GeneratePlanView: View {
                                             .tint(StitchTheme.onPrimaryFixed)
                                             .padding(.trailing, 8)
                                     }
-                                    Text(isGenerating ? "OPTIMIZING..." : "GENERATE PROTOCOL")
+                                    Text(isGenerating ? NSLocalizedString("OPTIMIZING...", comment: "") : NSLocalizedString("GENERATE PROTOCOL", comment: ""))
                                         .font(StitchTypography.label)
                                         .tracking(2)
                                 }
@@ -212,7 +212,7 @@ struct GeneratePlanView: View {
                     dismiss()
                 }
             case .failure(let error):
-                self.errorMessage = "SYSTEM ERROR: \(error.localizedDescription.uppercased())"
+                self.errorMessage = NSLocalizedString("SYSTEM ERROR: ", comment: "") + error.localizedDescription.uppercased()
             }
         }
     }
