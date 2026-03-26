@@ -22,7 +22,31 @@ struct LibraryExercise: Identifiable, Codable, Equatable {
     
     // Helper to get formatted primary muscles
     var muscleLabel: String {
-        primaryMuscles.joined(separator: " / ").uppercased()
+        localizedMuscleNames.joined(separator: " / ").uppercased()
+    }
+    
+    var localizedMuscleNames: [String] {
+        let mapping: [String: String] = [
+            "abdominals": "腹肌",
+            "abductors": "外展肌",
+            "adductors": "内收肌",
+            "biceps": "肱二头肌",
+            "calves": "小腿肌",
+            "chest": "胸部",
+            "forearms": "前臂",
+            "glutes": "臀肌",
+            "hamstrings": "腘绳肌",
+            "lats": "背阔肌",
+            "lower back": "下背",
+            "middle back": "中背",
+            "neck": "颈部",
+            "quadriceps": "股四头肌",
+            "shoulders": "肩部",
+            "traps": "斜方肌",
+            "triceps": "肱三头肌"
+        ]
+        
+        return primaryMuscles.map { mapping[$0.lowercased()] ?? $0 }
     }
     
     // Helper to get the first image path

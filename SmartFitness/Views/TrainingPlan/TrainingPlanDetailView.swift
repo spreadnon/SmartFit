@@ -296,6 +296,14 @@ struct ExerciseCard: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
+            if let thumb = exercise.images.first {
+                ExerciseImageView(imagePath: thumb)
+                    .frame(height: 200)
+                    .frame(maxWidth: .infinity)
+                    .clipped()
+                    .cornerRadius(12)
+                    .padding(.bottom, 24)
+            }
             headerSection
             statsSection
             
@@ -348,7 +356,7 @@ struct ExerciseCard: View {
                         }
                     }
                     
-                    Text(exercise.focusArea.isEmpty ? "FOCUS" : exercise.focusArea.uppercased())
+                    Text(exercise.primaryMuscles.isEmpty ? (exercise.focusArea.isEmpty ? "FOCUS" : exercise.focusArea.uppercased()) : exercise.localizedMuscleNames.joined(separator: " / ").uppercased())
                         .font(StitchTypography.label)
                         .foregroundColor(StitchTheme.onSurfaceVariant)
                         .tracking(2.0)
@@ -572,7 +580,7 @@ struct ExerciseCard: View {
                 }
                 Spacer()
                 VStack(alignment: .leading) {
-                    Text("次数")
+                    Text("次数/组")
                         .font(StitchTypography.label)
                         .tracking(2.0)
                         .foregroundColor(StitchTheme.onSurfaceVariant)

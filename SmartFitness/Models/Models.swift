@@ -56,7 +56,8 @@ class AppData: ObservableObject {
                 difficulty: lib.level,
                 images: lib.images,
                 instructions: lib.instructions.joined(separator: "\n"),
-                focusArea: lib.primaryMuscles.joined(separator: ", ")
+                focusArea: lib.primaryMuscles.joined(separator: ", "),
+                primaryMuscles: lib.primaryMuscles
             )
         }
     }
@@ -195,7 +196,8 @@ struct PlanResponse: Codable {
                     reps: exercise.reps,
                     equipment: exercise.equipment,
                     difficulty: exercise.difficulty,
-                    images: splitImages
+                    images: splitImages,
+                    primaryMuscles: exercise.primaryMuscles
                 )
             }
             return TrainingDay(label: dailyPlan.trainingDay, exercises: exercises)
@@ -233,10 +235,12 @@ struct APIExercise: Codable {
     let equipment: String
     let difficulty: String
     let images: [String]
+    let primaryMuscles: [String]
 
     enum CodingKeys: String, CodingKey {
         case exerciseName = "exercise_name"
         case sets, reps, order, equipment, difficulty, images
+        case primaryMuscles = "primary_muscles"
     }
 }
 
@@ -342,9 +346,10 @@ struct Exercise: Identifiable, Codable, Equatable {
     let images: [String]
     let instructions: String
     let focusArea: String
+    let primaryMuscles: [String]
     var exerciseSets: [ExerciseSet]
     
-    init(id: UUID = UUID(), order: Int, exerciseName: String, sets: Int, reps: String, equipment: String, difficulty: String, images: [String] = [], instructions: String = "", focusArea: String = "") {
+    init(id: UUID = UUID(), order: Int, exerciseName: String, sets: Int, reps: String, equipment: String, difficulty: String, images: [String] = [], instructions: String = "", focusArea: String = "", primaryMuscles: [String] = []) {
         self.id = id
         self.order = order
         self.exerciseName = exerciseName
@@ -355,6 +360,7 @@ struct Exercise: Identifiable, Codable, Equatable {
         self.images = images
         self.instructions = instructions
         self.focusArea = focusArea
+        self.primaryMuscles = primaryMuscles
         
         // 根据器械提供合理的初始重量
         let defaultWeight: Double = {
@@ -383,6 +389,30 @@ struct Exercise: Identifiable, Codable, Equatable {
     
     var isCompleted: Bool {
         !exerciseSets.isEmpty && exerciseSets.allSatisfy { $0.isCompleted }
+    }
+    
+    var localizedMuscleNames: [String] {
+        let mapping: [String: String] = [
+            "abdominals": "腹肌",
+            "abductors": "外展肌",
+            "adductors": "内收肌",
+            "biceps": "肱二头肌",
+            "calves": "小腿肌",
+            "chest": "胸部",
+            "forearms": "前臂",
+            "glutes": "臀肌",
+            "hamstrings": "腘绳肌",
+            "lats": "背阔肌",
+            "lower back": "下背",
+            "middle back": "中背",
+            "neck": "颈部",
+            "quadriceps": "股四头肌",
+            "shoulders": "肩部",
+            "traps": "斜方肌",
+            "triceps": "肱三头肌"
+        ]
+        
+        return primaryMuscles.map { mapping[$0.lowercased()] ?? $0 }
     }
 }
 
@@ -435,3 +465,24 @@ struct TrainingRecord: Identifiable, Codable {
         self.isCompleted = isCompleted
     }
 }
+
+
+/**
+ abdominals - 腹肌
+ abductors - 外展肌（髋外展肌群）
+ adductors - 内收肌（髋内收肌群）
+ biceps - 肱二头肌
+ calves - 小腿肌
+ chest - 胸部
+ forearms - 前臂
+ glutes - 臀肌
+ hamstrings - 腘绳肌（大腿后侧）
+ lats - 背阔肌
+ lower back - 下背
+ middle back - 中背
+ neck - 颈部
+ quadriceps - 股四头肌（大腿前侧）
+ shoulders - 肩部
+ traps - 斜方肌
+ triceps - 肱三头肌
+ */

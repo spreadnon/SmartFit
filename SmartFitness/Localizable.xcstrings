@@ -143,23 +143,6 @@
         }
       }
     },
-    "AI 生成" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "AI GEN"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "AI 生成"
-          }
-        }
-      }
-    },
     "AI-DRIVEN PARAMETRIC PROGRAMMING" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -549,7 +532,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "生成智能计划或手动选择开始"
+            "value" : "生成智能计划或自由选择开始"
           }
         }
       }
@@ -742,7 +725,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "手动选择"
+            "value" : "自由选择"
           }
         }
       }
@@ -776,7 +759,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "手动训练"
+            "value" : "自选训练"
           }
         }
       }
@@ -1086,6 +1069,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "肩部"
+          }
+        }
+      }
+    },
+    "SMART GEN" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SMART GEN"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "智能生成"
           }
         }
       }
@@ -1536,7 +1536,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "手动训练计划"
+            "value" : "自选训练计划"
           }
         }
       }
@@ -1553,7 +1553,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "手动选择"
+            "value" : "自由选择"
           }
         }
       }
@@ -1676,6 +1676,9 @@
           }
         }
       }
+    },
+    "次数/组" : {
+
     },
     "正在进行" : {
       "extractionState" : "manual",
@@ -1825,7 +1828,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "生成智能计划或手动选择开始"
+            "value" : "生成智能计划或自由选择开始"
           }
         }
       }

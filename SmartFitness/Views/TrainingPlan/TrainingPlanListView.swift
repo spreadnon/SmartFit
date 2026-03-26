@@ -47,8 +47,8 @@ struct TrainingPlanListView: View {
                         // Quick Entry Actions (Ignition Blocks)
                         HStack(spacing: 16) {
                             entryButton(
-                                title: "AI GEN",
-                                subtitle: "SMART GEN",
+                                title: NSLocalizedString("AI GEN", comment: ""),
+                                subtitle: NSLocalizedString("SMART GEN", comment: ""),
                                 icon: "sparkles",
                                 color: StitchTheme.primaryContainer,
                                 textColor: StitchTheme.onPrimaryFixed
@@ -57,8 +57,8 @@ struct TrainingPlanListView: View {
                             }
                             
                             entryButton(
-                                title: "MANUAL",
-                                subtitle: "MANUAL",
+                                title: NSLocalizedString("MANUAL", comment: ""),
+                                subtitle: NSLocalizedString("MANUAL", comment: ""),
                                 icon: "plus.circle",
                                 color: StitchTheme.surfaceContainerHigh,
                                 textColor: StitchTheme.primary

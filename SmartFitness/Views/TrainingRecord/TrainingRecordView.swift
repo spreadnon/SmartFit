@@ -283,6 +283,11 @@ struct TrainingRecordView: View {
         SummaryRow(title: "TOTAL VOLUME", value: String(format: "%.1f KG", totalWeight))
         SummaryRow(title: "TOTAL SETS", value: String(format: NSLocalizedString(" %lld SETS", comment: ""), totalSets))
         
+        let allMuscles = Array(Set(exercises.flatMap { $0.localizedMuscleNames })).joined(separator: ", ")
+        if !allMuscles.isEmpty {
+            SummaryRow(title: "TRAINED MUSCLES", value: allMuscles)
+        }
+        
         if let duration = duration, duration > 0 {
             SummaryRow(title: "ACTUAL DURATION", value: formatDuration(duration))
         } else {
