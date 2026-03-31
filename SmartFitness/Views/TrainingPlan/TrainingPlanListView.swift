@@ -127,21 +127,39 @@ struct TrainingPlanListView: View {
                 Text("WELCOME BACK,\n")
                     .font(StitchTypography.headlineLarge)
                     .foregroundColor(StitchTheme.onSurface)
-//                + Text("CHAMPION")
-//                    .font(StitchTypography.headlineLarge)
-//                    .foregroundColor(StitchTheme.primaryContainer)
                     .italic()
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        queryWeather()
+                    }
             }
-            
-//            HStack(spacing: 8) {
-//                Circle()
-//                    .fill(StitchTheme.primaryContainer)
-//                    .frame(width: 8, height: 8)
-//                Text("SYSTEM STATUS: OPTIMIZED")
-//                    .font(StitchTypography.label)
-//                    .foregroundColor(StitchTheme.onSurfaceVariant)
+        }
+    }
+
+    private func queryWeather() {
+//        // 查询天气（同步）
+//        A2AClient.shared.sendRequest(action: "query_weather", payload: ["city": "北京"]) { res, err in
+//            print("返回：", res ?? "无数据")
+//            if let err {
+//                print("错误：", err)
 //            }
-//            .padding(.top, 8)
+//        }
+        
+        
+        // 流式 AI 对话
+        var fullText = ""
+        A2ASSEClient.shared.sendStreamRequest(
+            prompt: "你好，请介绍一下 A2A 协议"
+        ) { char in
+            // 每收到一个字，拼接显示
+            fullText += char
+            print(fullText)
+            // 你可以在这里更新 UILabel / UITextView
+            if fullText.count > 5{
+                A2ASSEClient.shared.stopCurrentStream()
+            }
+        } onComplete: {
+            print("✅ 流式输出完成")
         }
     }
     
