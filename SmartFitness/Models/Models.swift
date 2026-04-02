@@ -3,6 +3,16 @@ import SwiftUI
 
 // MARK: - App Global State
 class AppData: ObservableObject {
+    @Published var currentUser: User? {
+        didSet {
+            saveUser()
+        }
+    }
+    
+    var isLoggedIn: Bool {
+        currentUser != nil
+    }
+
     @Published var aiSmartPlan: TrainingPlan? {
         didSet {
             savePlan()
@@ -30,10 +40,30 @@ class AppData: ObservableObject {
     private let planKey = "saved_training_plan"
     private let manualPlanKey = "saved_manual_plan"
     private let recordsKey = "saved_training_records"
+    private let userKey = "saved_user_data"
     
     init() {
+        loadUser()
         loadPlan()
         loadRecords()
+    }
+    
+    private func saveUser() {
+        if let user = currentUser {
+            if let encoded = try? JSONEncoder().encode(user) {
+                UserDefaults.standard.set(encoded, forKey: userKey)
+            }
+        } else {
+            UserDefaults.standard.removeObject(forKey: userKey)
+        }
+    }
+    
+    private func loadUser() {
+        if let data = UserDefaults.standard.data(forKey: userKey) {
+            if let decoded = try? JSONDecoder().decode(User.self, from: data) {
+                self.currentUser = decoded
+            }
+        }
     }
     
     func addToToday(exercises: [Exercise]) {
@@ -463,6 +493,20 @@ struct TrainingRecord: Identifiable, Codable {
         self.exercises = exercises
         self.duration = duration
         self.isCompleted = isCompleted
+    }
+}
+
+struct User: Codable {
+    let id: Int
+    let appleSub: String?
+    let email: String?
+    let name: String?
+    let token: String?
+    
+    enum CodingKeys: String, CodingKey {
+        case id = "user_id"
+        case appleSub = "apple_sub"
+        case email, name, token
     }
 }
 

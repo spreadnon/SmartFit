@@ -23,6 +23,16 @@ struct ExerciseLibraryView: View {
         }
     }
     
+    private var groupedExercises: [String: [LibraryExercise]] {
+        Dictionary(grouping: filteredExercises) { exercise in
+            String(exercise.name.prefix(1)).uppercased()
+        }
+    }
+    
+    private var sortedInitialKeys: [String] {
+        groupedExercises.keys.sorted()
+    }
+    
     var body: some View {
         ZStack {
             StitchTheme.background.ignoresSafeArea()
@@ -33,14 +43,17 @@ struct ExerciseLibraryView: View {
                     .padding(.bottom, 8)
                 
                 // Content
-                ScrollView {
-                    VStack(spacing: 24) {
-                        searchSection
-                        categoryChipsSection
-                        exerciseGridSection
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        VStack(spacing: 24) {
+                            searchSection
+                            categoryChipsSection
+                            exerciseGridSection(proxy: proxy)
+                        }
+                        .padding(.top, 24)
+                        .padding(.bottom, 120) // Extra padding for the floating button
                     }
-                    .padding(.top, 24)
-                    .padding(.bottom, 120) // Extra padding for the floating button
+                    .overlay(indexSidebar(proxy: proxy), alignment: .trailing)
                 }
             }
             
@@ -136,7 +149,7 @@ struct ExerciseLibraryView: View {
     }
     
     @ViewBuilder
-    private var exerciseGridSection: some View {
+    private func exerciseGridSection(proxy: ScrollViewProxy) -> some View {
         let columns = [
             GridItem(.flexible(), spacing: 16),
             GridItem(.flexible(), spacing: 16)
@@ -154,17 +167,67 @@ struct ExerciseLibraryView: View {
             .frame(maxWidth: .infinity)
             .padding(.top, 60)
         } else {
-            LazyVGrid(columns: columns, spacing: 16) {
-                ForEach(filteredExercises) { exercise in
-                    let isSelected = selectedExercises.contains(where: { $0.id == exercise.id })
-                    LibraryExerciseCard(exercise: exercise, isSelected: isSelected) {
-                        toggleSelection(exercise)
+            VStack(alignment: .leading, spacing: 32) {
+                ForEach(sortedInitialKeys, id: \.self) { key in
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text(key)
+                            .font(StitchTypography.dataMedium)
+                            .italic()
+                            .foregroundColor(StitchTheme.onSurfaceVariant.opacity(0.5))
+                            .padding(.horizontal, 24)
+                            .id(key) // For ScrollViewReader
+                        
+                        LazyVGrid(columns: columns, spacing: 16) {
+                            ForEach(groupedExercises[key] ?? []) { exercise in
+                                let isSelected = selectedExercises.contains(where: { $0.id == exercise.id })
+                                LibraryExerciseCard(exercise: exercise, isSelected: isSelected) {
+                                    toggleSelection(exercise)
+                                }
+                                .transition(.scale.combined(with: .opacity))
+                            }
+                        }
+                        .padding(.horizontal, 24)
                     }
-                    .transition(.scale.combined(with: .opacity))
                 }
             }
             .animation(.easeInOut(duration: 0.3), value: filteredExercises.count)
-            .padding(.horizontal, 24)
+        }
+    }
+    
+    @ViewBuilder
+    private func indexSidebar(proxy: ScrollViewProxy) -> some View {
+        if !sortedInitialKeys.isEmpty && filteredExercises.count > 10 {
+            VStack(spacing: 0) {
+                Spacer()
+                VStack(spacing: 2) {
+                    ForEach(sortedInitialKeys, id: \.self) { key in
+                        Button {
+                            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                                proxy.scrollTo(key, anchor: .top)
+                            }
+                            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+                        } label: {
+                            Text(key)
+                                .font(StitchTypography.labelSmall)
+                                .foregroundColor(StitchTheme.primaryContainer)
+                                .frame(width: 24, height: 20)
+                                .contentShape(Rectangle())
+                        }
+                    }
+                }
+                .padding(.vertical, 12)
+                .background(
+                    Capsule()
+                        .fill(StitchTheme.surfaceContainerLow.opacity(0.6))
+                        .overlay(
+                            Capsule()
+                                .stroke(StitchTheme.primaryContainer.opacity(0.1), lineWidth: 1)
+                        )
+                )
+                .padding(.trailing, 8)
+                Spacer()
+            }
+            .transition(.move(edge: .trailing).combined(with: .opacity))
         }
     }
     

@@ -53,7 +53,19 @@ struct TrainingPlanListView: View {
                                 color: StitchTheme.primaryContainer,
                                 textColor: StitchTheme.onPrimaryFixed
                             ) {
-                                showingGeneratePlan = true
+                                if appData.isLoggedIn {
+                                    showingGeneratePlan = true
+                                } else {
+                                    AuthService.shared.startAppleLogin { result in
+                                        switch result {
+                                        case .success(let user):
+                                            appData.currentUser = user
+                                            showingGeneratePlan = true
+                                        case .failure(let error):
+                                            print("Login failed: \(error.localizedDescription)")
+                                        }
+                                    }
+                                }
                             }
                             
                             entryButton(
@@ -82,15 +94,21 @@ struct TrainingPlanListView: View {
     private var glassHeader: some View {
         HStack {
             HStack(spacing: 12) {
-                Circle()
-                    .fill(StitchTheme.surfaceContainerHigh)
-                    .frame(width: 32, height: 32)
-                    .overlay(
-                        Image(systemName: "person.fill")
-                            .font(.system(size: 14))
-                            .foregroundColor(StitchTheme.onSurfaceVariant)
-                    )
-                    .overlay(Circle().stroke(StitchTheme.outlineVariant.opacity(0.2), lineWidth: 1))
+                Button(action: {
+                    if appData.isLoggedIn {
+                        appData.currentUser = nil
+                    }
+                }) {
+                    Circle()
+                        .fill(StitchTheme.surfaceContainerHigh)
+                        .frame(width: 32, height: 32)
+                        .overlay(
+                            Image(systemName: appData.isLoggedIn ? "person.badge.minus" : "person.fill")
+                                .font(.system(size: 14))
+                                .foregroundColor(StitchTheme.onSurfaceVariant)
+                        )
+                        .overlay(Circle().stroke(StitchTheme.outlineVariant.opacity(0.2), lineWidth: 1))
+                }
             }
             
             Spacer()
@@ -124,7 +142,7 @@ struct TrainingPlanListView: View {
                 .tracking(4)
             
             Group {
-                Text("WELCOME BACK,\n")
+                Text("WELCOME BACK,\n\(appData.currentUser?.name ?? "TRAINER")")
                     .font(StitchTypography.headlineLarge)
                     .foregroundColor(StitchTheme.onSurface)
                     .italic()
