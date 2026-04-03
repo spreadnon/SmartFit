@@ -203,7 +203,13 @@ struct GeneratePlanView: View {
         isGenerating = true
         errorMessage = nil
 
-        NetworkManager.shared.generatePlan(level: selectedLevel, frequency: selectedFrequency, scene: selectedScene, injuries: selectedInjuries) { result in
+        NetworkManager.shared.generatePlan(
+            level: selectedLevel,
+            frequency: selectedFrequency,
+            scene: selectedScene,
+            injuries: selectedInjuries,
+            token: appData.currentUser?.token
+        ) { result in
             isGenerating = false
             switch result {
             case .success(let plan):

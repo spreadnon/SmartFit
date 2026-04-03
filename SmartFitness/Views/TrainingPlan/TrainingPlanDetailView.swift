@@ -102,7 +102,26 @@ struct TrainingPlanDetailView: View {
         }
         
         if !exercises.isEmpty {
+            // 1. 本地保存
             appData.saveSessionRecord(exercises: exercises, focusArea: focusArea, duration: sessionDuration)
+            
+            // 2. 远程保存到 MySQL
+            let record = TrainingRecord(
+                date: Date(),
+                focusArea: focusArea,
+                exercises: exercises,
+                duration: sessionDuration,
+                isCompleted: exercises.allSatisfy { $0.isCompleted }
+            )
+            
+            NetworkManager.shared.saveTraining(record: record, token: appData.currentUser?.token) { result in
+                switch result {
+                case .success:
+                    print("✅ 训练记录已同步至 MySQL")
+                case .failure(let error):
+                    print("❌ 训练记录同步失败: \(error.localizedDescription)")
+                }
+            }
         }
     }
     

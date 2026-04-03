@@ -92,7 +92,7 @@ struct AnyCodable: Codable {
 class A2AClient {
     static let shared = A2AClient()
     //http://10.108.2.95:8001/generate-plan
-    let baseURL = URL(string: "http://10.108.2.95:8001/a2a/v1/message")!
+    let baseURL = URL(string: hostName + "/a2a/v1/message")!
     
     // 发送同步请求
     func sendRequest(

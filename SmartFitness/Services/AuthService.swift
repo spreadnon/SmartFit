@@ -4,7 +4,7 @@ import AuthenticationServices
 class AuthService: NSObject {
     static let shared = AuthService()
     
-    private let loginURL = URL(string: "http://10.108.2.95:8001/api/apple/login")!
+    private let loginURL = URL(string: hostName + "/api/apple/login")!
     
     private var completion: ((Result<User, Error>) -> Void)?
     

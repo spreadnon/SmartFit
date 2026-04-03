@@ -357,6 +357,11 @@ struct ExerciseSet: Identifiable, Codable, Equatable {
     var reps: Int
     var isCompleted: Bool
     
+    enum CodingKeys: String, CodingKey {
+        case id, weight, reps
+        case isCompleted = "is_completed"
+    }
+    
     init(id: UUID = UUID(), weight: Double = 0, reps: Int = 10, isCompleted: Bool = false) {
         self.id = id
         self.weight = weight
@@ -378,6 +383,14 @@ struct Exercise: Identifiable, Codable, Equatable {
     let focusArea: String
     let primaryMuscles: [String]
     var exerciseSets: [ExerciseSet]
+    
+    enum CodingKeys: String, CodingKey {
+        case id, order, sets, reps, equipment, difficulty, images, instructions
+        case exerciseName = "exercise_name"
+        case focusArea = "focus_area"
+        case primaryMuscles = "primary_muscles"
+        case exerciseSets = "exercise_sets"
+    }
     
     init(id: UUID = UUID(), order: Int, exerciseName: String, sets: Int, reps: String, equipment: String, difficulty: String, images: [String] = [], instructions: String = "", focusArea: String = "", primaryMuscles: [String] = []) {
         self.id = id
@@ -485,6 +498,12 @@ struct TrainingRecord: Identifiable, Codable {
     let exercises: [Exercise]
     let duration: TimeInterval
     let isCompleted: Bool
+    
+    enum CodingKeys: String, CodingKey {
+        case id, date, exercises, duration
+        case focusArea = "focus_area"
+        case isCompleted = "is_completed"
+    }
     
     init(id: UUID = UUID(), date: Date, focusArea: String, exercises: [Exercise], duration: TimeInterval = 0, isCompleted: Bool) {
         self.id = id

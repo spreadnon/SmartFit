@@ -10,7 +10,7 @@ import Foundation
 // MARK: - A2A SSE 客户端
 class A2ASSEClient {
     static let shared = A2ASSEClient()
-    let baseURL = URL(string: "http://10.108.2.95:8001/a2a/v1/message")!
+    let baseURL = URL(string: hostName + "/a2a/v1/message")!
     private var activeSession: URLSession?
     private var activeDelegate: SSEDelegate?
     private var activeTask: URLSessionDataTask?
@@ -72,7 +72,7 @@ class A2ASSEClient {
         activeDelegate = nil
         
         // 2. 通知后端停止
-        let url = URL(string: "http://10.108.2.95:8001/a2a/v1/stream/stop/\(taskID)")!
+        let url = URL(string: hostName + "/a2a/v1/stream/stop/\(taskID)")!
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
         URLSession.shared.dataTask(with: req).resume()
