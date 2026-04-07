@@ -18,6 +18,9 @@
         }
       }
     },
+    " %lld 组" : {
+
+    },
     " PROTOCOL" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -468,6 +471,9 @@
           }
         }
       }
+    },
+    "FETCHING REMOTE RECORD..." : {
+
     },
     "FOCUS AREA" : {
       "extractionState" : "manual",

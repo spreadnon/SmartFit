@@ -3,6 +3,7 @@ import SwiftUI
 struct TrainingRecordView: View {
     @EnvironmentObject var appData: AppData
     @State private var selectedDate = Date()
+    @State private var isFetchingRemote = false
     
     // Helper to get month name
     private var monthYearString: String {
@@ -37,6 +38,31 @@ struct TrainingRecordView: View {
             }
         }
         .preferredColorScheme(.dark)
+        .onChange(of: selectedDate) { newDate in
+            fetchRemoteRecordIfNeeded(for: newDate)
+        }
+        .onAppear {
+            fetchRemoteRecordIfNeeded(for: selectedDate)
+        }
+    }
+    
+    private func fetchRemoteRecordIfNeeded(for date: Date) {
+        // Only fetch if local record is missing
+        let localRecord = appData.records.first(where: { Calendar.current.isDate($0.date, inSameDayAs: date) })
+        if localRecord == nil {
+            isFetchingRemote = true
+            NetworkManager.shared.getTraining(date: date, token: appData.currentUser?.token) { result in
+                isFetchingRemote = false
+                switch result {
+                case .success(let record):
+                    if let record = record {
+                        appData.updateRecord(record)
+                    }
+                case .failure(let error):
+                    print("❌ 远程记录获取失败: \(error.localizedDescription)")
+                }
+            }
+        }
     }
     
     @ViewBuilder
@@ -245,7 +271,17 @@ struct TrainingRecordView: View {
                 .padding(.horizontal, 24)
             
             VStack(alignment: .leading, spacing: 12) {
-                if let record = record {
+                if isFetchingRemote {
+                    HStack {
+                        ProgressView()
+                            .tint(StitchTheme.primaryContainer)
+                        Text("FETCHING REMOTE RECORD...")
+                            .font(StitchTypography.labelSmall)
+                            .foregroundColor(StitchTheme.onSurfaceVariant)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.vertical, 20)
+                } else if let record = record {
                     // Pre-recorded focus area is already localized or should be
                     summaryRows(exercises: record.exercises, source: record.focusArea, duration: record.duration)
                 } else if isToday {
@@ -271,27 +307,27 @@ struct TrainingRecordView: View {
     
     @ViewBuilder
     private func summaryRows(exercises: [Exercise], source: String, extra: String? = nil, duration: TimeInterval? = nil) -> some View {
-        SummaryRow(title: "EXERCISE PLAN", value: "\(exercises.count) EXERCISES")
-        SummaryRow(title: "PLAN SOURCE", value: source)
+        SummaryRow(title: "锻炼计划", value: "\(exercises.count) 动作")
+        SummaryRow(title: "计划来源", value: source == "CUSTOM" ? "自选" : "AI计划")
         if let extra = extra {
-            SummaryRow(title: "FOCUS AREA", value: extra)
+            SummaryRow(title: "重点部位", value: extra)
         }
         
         let totalWeight = exercises.reduce(0.0) { $0 + $1.totalVolume }
         let totalSets = exercises.reduce(0) { $0 + $1.exerciseSets.count }
         
-        SummaryRow(title: "TOTAL VOLUME", value: String(format: "%.1f KG", totalWeight))
-        SummaryRow(title: "TOTAL SETS", value: String(format: NSLocalizedString(" %lld SETS", comment: ""), totalSets))
+        SummaryRow(title: "总重量", value: String(format: "%.1f KG", totalWeight))
+        SummaryRow(title: "总组数", value: String(format: NSLocalizedString(" %lld 组", comment: ""), totalSets))
         
         let allMuscles = Array(Set(exercises.flatMap { $0.localizedMuscleNames })).joined(separator: ", ")
         if !allMuscles.isEmpty {
-            SummaryRow(title: "TRAINED MUSCLES", value: allMuscles)
+            SummaryRow(title: "肌肉部位", value: allMuscles)
         }
         
         if let duration = duration, duration > 0 {
-            SummaryRow(title: "ACTUAL DURATION", value: formatDuration(duration))
+            SummaryRow(title: "实际训练时长", value: formatDuration(duration))
         } else {
-            SummaryRow(title: "ESTIMATED TIME", value: "45 MIN")
+            SummaryRow(title: "预计训练时长", value: "45 MIN")
         }
     }
     

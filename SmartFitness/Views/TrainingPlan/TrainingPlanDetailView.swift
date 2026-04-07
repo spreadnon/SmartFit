@@ -298,17 +298,19 @@ struct ExerciseCard: View {
     
     // Rest Timer
     @State private var timer: Timer?
-    @State private var timeRemaining: Int = 60
+    @State private var timeRemaining: Int = 90
     @State private var isTimerRunning: Bool = false
     
     enum ActiveSheet: Identifiable {
         case weight(index: Int)
         case reps(index: Int)
+        case restTime
         
         var id: Int {
             switch self {
             case .weight(let index): return 1000 + index
             case .reps(let index): return 2000 + index
+            case .restTime: return 3000
             }
         }
     }
@@ -342,6 +344,14 @@ struct ExerciseCard: View {
         .onAppear {
             if isLocked {
                 isCollapsed = true
+            }
+            if !isTimerRunning {
+                timeRemaining = exercise.restTime
+            }
+        }
+        .onChange(of: exercise.restTime) { newValue in
+            if !isTimerRunning {
+                timeRemaining = newValue
             }
         }
     }
@@ -404,13 +414,17 @@ struct ExerciseCard: View {
                     .tracking(2.0)
                     .foregroundColor(StitchTheme.onSurfaceVariant)
                 
-                HStack(alignment: .firstTextBaseline, spacing: 4) {
-                    Text(String(format: "%02d:%02d", timeRemaining / 60, timeRemaining % 60))
-                        .font(StitchTypography.dataLarge)
-                        .foregroundColor(isTimerRunning ? StitchTheme.tertiary : StitchTheme.onSurfaceVariant)
-                    Text("SEC")
-                        .font(StitchTypography.label)
-                        .foregroundColor(StitchTheme.onSurfaceVariant)
+                Button {
+                    activeSheet = .restTime
+                } label: {
+                    HStack(alignment: .firstTextBaseline, spacing: 4) {
+                        Text(String(format: "%02d:%02d", timeRemaining / 60, timeRemaining % 60))
+                            .font(StitchTypography.dataLarge)
+                            .foregroundColor(isTimerRunning ? StitchTheme.tertiary : StitchTheme.onSurfaceVariant)
+                        Text("SEC")
+                            .font(StitchTypography.label)
+                            .foregroundColor(StitchTheme.onSurfaceVariant)
+                    }
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -660,7 +674,7 @@ struct ExerciseCard: View {
     }
     
     private func startRestTimer() {
-        timeRemaining = 90
+        timeRemaining = exercise.restTime
         isTimerRunning = true
         timer?.invalidate()
         timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
@@ -776,6 +790,16 @@ struct PickerSheetView: View {
                     set: { exercise.exerciseSets[index].reps = Int($0) }
                 ),
                 options: repsOptions.map { Double($0) },
+                format: "%.0f"
+            )
+        case .restTime:
+            ValuePickerSheet(
+                title: "REST TIME (SEC)",
+                selection: Binding(
+                    get: { Double(exercise.restTime) },
+                    set: { exercise.restTime = Int($0) }
+                ),
+                options: Array(stride(from: 30.0, to: 301.0, by: 5.0)),
                 format: "%.0f"
             )
         }

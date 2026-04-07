@@ -87,7 +87,8 @@ class AppData: ObservableObject {
                 images: lib.images,
                 instructions: lib.instructions.joined(separator: "\n"),
                 focusArea: lib.primaryMuscles.joined(separator: ", "),
-                primaryMuscles: lib.primaryMuscles
+                primaryMuscles: lib.primaryMuscles,
+                restTime: 90
             )
         }
     }
@@ -160,6 +161,15 @@ class AppData: ObservableObject {
         }
     }
     
+    func updateRecord(_ record: TrainingRecord) {
+        if let index = records.firstIndex(where: { Calendar.current.isDate($0.date, inSameDayAs: record.date) }) {
+            records[index] = record
+        } else {
+            records.append(record)
+        }
+        // records is @Published, so UI will update
+    }
+    
     private func saveRecords() {
         if let encoded = try? JSONEncoder().encode(records) {
             UserDefaults.standard.set(encoded, forKey: recordsKey)
@@ -227,7 +237,8 @@ struct PlanResponse: Codable {
                     equipment: exercise.equipment,
                     difficulty: exercise.difficulty,
                     images: splitImages,
-                    primaryMuscles: exercise.primaryMuscles
+                    primaryMuscles: exercise.primaryMuscles,
+                    restTime: 90
                 )
             }
             return TrainingDay(label: dailyPlan.trainingDay, exercises: exercises)
@@ -382,6 +393,7 @@ struct Exercise: Identifiable, Codable, Equatable {
     let instructions: String
     let focusArea: String
     let primaryMuscles: [String]
+    var restTime: Int
     var exerciseSets: [ExerciseSet]
     
     enum CodingKeys: String, CodingKey {
@@ -390,9 +402,10 @@ struct Exercise: Identifiable, Codable, Equatable {
         case focusArea = "focus_area"
         case primaryMuscles = "primary_muscles"
         case exerciseSets = "exercise_sets"
+        case restTime = "rest_time"
     }
     
-    init(id: UUID = UUID(), order: Int, exerciseName: String, sets: Int, reps: String, equipment: String, difficulty: String, images: [String] = [], instructions: String = "", focusArea: String = "", primaryMuscles: [String] = []) {
+    init(id: UUID = UUID(), order: Int, exerciseName: String, sets: Int, reps: String, equipment: String, difficulty: String, images: [String] = [], instructions: String = "", focusArea: String = "", primaryMuscles: [String] = [], restTime: Int = 90) {
         self.id = id
         self.order = order
         self.exerciseName = exerciseName
@@ -404,6 +417,7 @@ struct Exercise: Identifiable, Codable, Equatable {
         self.instructions = instructions
         self.focusArea = focusArea
         self.primaryMuscles = primaryMuscles
+        self.restTime = restTime
         
         // 根据器械提供合理的初始重量
         let defaultWeight: Double = {
@@ -526,6 +540,22 @@ struct User: Codable {
         case id = "user_id"
         case appleSub = "apple_sub"
         case email, name, token
+    }
+}
+
+// MARK: - Server Response Models
+struct RemoteTrainingLog: Codable {
+    let id: Int
+    let exerciseName: String
+    let sets: Int
+    let reps: String
+    let weight: Double
+    let logDate: String // "2026-04-03 11:16:57"
+    
+    enum CodingKeys: String, CodingKey {
+        case id, sets, reps, weight
+        case exerciseName = "exercise_name"
+        case logDate = "log_date"
     }
 }
 
