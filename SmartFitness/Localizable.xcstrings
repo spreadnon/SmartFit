@@ -112,6 +112,12 @@
         }
       }
     },
+    "Add documents" : {
+
+    },
+    "Add notes..." : {
+
+    },
     "AI GEN" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -265,6 +271,9 @@
         }
       }
     },
+    "Capture multiple pages, extract itinerary fast" : {
+
+    },
     "CHEST" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -281,6 +290,9 @@
           }
         }
       }
+    },
+    "Clear all" : {
+
     },
     "COMMAND CENTER" : {
 
@@ -301,6 +313,9 @@
           }
         }
       }
+    },
+    "Confidence 96% - AI interpreted" : {
+
     },
     "CONFIRM REPLACEMENT" : {
       "extractionState" : "manual",
@@ -404,6 +419,12 @@
         }
       }
     },
+    "Drop images or scan" : {
+
+    },
+    "END" : {
+
+    },
     "ENVIRONMENT" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -438,6 +459,9 @@
         }
       }
     },
+    "Event Title" : {
+
+    },
     "EXERCISE PLAN" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -471,6 +495,12 @@
           }
         }
       }
+    },
+    "Extract Itinerary" : {
+
+    },
+    "Extracted Schedule (Tap to edit)" : {
+
     },
     "FETCHING REMOTE RECORD..." : {
 
@@ -645,6 +675,12 @@
         }
       }
     },
+    "Itinerary added to your calendar." : {
+
+    },
+    "JPG, PNG, PDF • up to 10" : {
+
+    },
     "KG" : {
 
     },
@@ -701,6 +737,12 @@
           }
         }
       }
+    },
+    "Location" : {
+
+    },
+    "LOCATION" : {
+
     },
     "LOCATION TYPE" : {
       "extractionState" : "manual",
@@ -786,6 +828,9 @@
           }
         }
       }
+    },
+    "MM-dd HH:mm" : {
+
     },
     "NO ACTIVE TRAINING PLAN" : {
       "extractionState" : "manual",
@@ -889,6 +934,9 @@
         }
       }
     },
+    "OK" : {
+
+    },
     "OPTIMIZING..." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -957,6 +1005,9 @@
         }
       }
     },
+    "REMARK" : {
+
+    },
     "REPLACEMENT MODE" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -991,6 +1042,12 @@
         }
       }
     },
+    "Save Calendar" : {
+
+    },
+    "Schedule Parser" : {
+
+    },
     "SEARCH EXERCISES..." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1009,6 +1066,9 @@
       }
     },
     "SEC" : {
+
+    },
+    "Selected (%lld)" : {
 
     },
     "SELECTED: " : {
@@ -1112,6 +1172,12 @@
           }
         }
       }
+    },
+    "START" : {
+
+    },
+    "Success" : {
+
     },
     "SYSTEM ERROR: " : {
       "extractionState" : "manual",
@@ -1377,6 +1443,9 @@
         }
       }
     },
+    "写入健康App" : {
+
+    },
     "加组数" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1428,6 +1497,9 @@
         }
       }
     },
+    "地点：%@" : {
+
+    },
     "增加负荷，中等强度" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1444,6 +1516,9 @@
           }
         }
       }
+    },
+    "备注：%@" : {
+
     },
     "完成" : {
       "extractionState" : "manual",
@@ -1478,6 +1553,9 @@
           }
         }
       }
+    },
+    "开始提取日程" : {
+
     },
     "总重量" : {
       "extractionState" : "manual",
@@ -1564,6 +1642,9 @@
         }
       }
     },
+    "拍摄食物" : {
+
+    },
     "新手" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1615,6 +1696,9 @@
         }
       }
     },
+    "时间：%@" : {
+
+    },
     "替换" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1631,6 +1715,12 @@
           }
         }
       }
+    },
+    "查看食物的热量" : {
+
+    },
+    "标题：%@" : {
+
     },
     "根据您的需求智能生成的个性化计划" : {
       "extractionState" : "manual",
@@ -1822,6 +1912,12 @@
         }
       }
     },
+    "添加到系统日历" : {
+
+    },
+    "热量：%lf kcal / 100g" : {
+
+    },
     "生成智能计划或手动选择开始" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2009,6 +2105,12 @@
         }
       }
     },
+    "识别：%@" : {
+
+    },
+    "选择截图" : {
+
+    },
     "部位" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2042,6 +2144,12 @@
           }
         }
       }
+    },
+    "食物热量" : {
+
+    },
+    "食物热量识别" : {
+
     },
     "高手" : {
       "extractionState" : "manual",

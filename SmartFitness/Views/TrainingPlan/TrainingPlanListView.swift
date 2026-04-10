@@ -3,7 +3,6 @@ import SwiftUI
 struct TrainingPlanListView: View {
     @EnvironmentObject var appData: AppData
     @State private var showingGeneratePlan = false
-    
     var body: some View {
         ZStack(alignment: .top) {
             StitchTheme.background.ignoresSafeArea()
@@ -78,14 +77,42 @@ struct TrainingPlanListView: View {
                                 appData.selectedTab = 1
                             }
                         }
+                        
+//                        HStack(spacing: 16) {
+//                            entryButton(
+//                                title: NSLocalizedString("食物热量", comment: ""),
+//                                subtitle: NSLocalizedString("查看食物的热量", comment: ""),
+//                                icon: "sparkles",
+//                                color: StitchTheme.primaryContainer,
+//                                textColor: StitchTheme.onPrimaryFixed
+//                            ) {
+//                                if appData.isLoggedIn {
+//                                    showingGeneratePlan = true
+//                                } else {
+//                                    AuthService.shared.startAppleLogin { result in
+//                                        switch result {
+//                                        case .success(let user):
+//                                            appData.currentUser = user
+//                                            showingGeneratePlan = true
+//                                        case .failure(let error):
+//                                            print("Login failed: \(error.localizedDescription)")
+//                                        }
+//                                    }
+//                                }
+//                            }
+//                            
+//                        }
                         .padding(.bottom, 40)
                     }
                     .padding(.horizontal, 24)
                 }
             }
             .navigationBarHidden(true)
-            .sheet(isPresented: $showingGeneratePlan) {
-                GeneratePlanView()
+            .sheet(isPresented: $showingGeneratePlan){
+//                GeneratePlanView()
+//                FoodCalorieView()
+//                LocalLLMView()
+                MultiImageScheduleView()
             }
         }
     }
@@ -164,21 +191,21 @@ struct TrainingPlanListView: View {
 //        }
         
         
-        // 流式 AI 对话
-        var fullText = ""
-        A2ASSEClient.shared.sendStreamRequest(
-            prompt: "你好，请介绍一下 A2A 协议"
-        ) { char in
-            // 每收到一个字，拼接显示
-            fullText += char
-            print(fullText)
-            // 你可以在这里更新 UILabel / UITextView
-            if fullText.count > 5{
-                A2ASSEClient.shared.stopCurrentStream()
-            }
-        } onComplete: {
-            print("✅ 流式输出完成")
-        }
+        // // 流式 AI 对话
+        // var fullText = ""
+        // A2ASSEClient.shared.sendStreamRequest(
+        //     prompt: "你好，请介绍一下 A2A 协议"
+        // ) { char in
+        //     // 每收到一个字，拼接显示
+        //     fullText += char
+        //     print(fullText)
+        //     // 你可以在这里更新 UILabel / UITextView
+        //     if fullText.count > 5{
+        //         A2ASSEClient.shared.stopCurrentStream()
+        //     }
+        // } onComplete: {
+        //     print("✅ 流式输出完成")
+        // }
     }
     
     private func aiPlanArrangementCard(plan: TrainingPlan, day: TrainingDay) -> some View {

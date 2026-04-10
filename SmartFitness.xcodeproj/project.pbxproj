@@ -108,6 +108,10 @@
 			);
 			mainGroup = 22929A512F6BF3AE00EB8779;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				22598DD52F863B3300E313E3 /* XCRemoteSwiftPackageReference "mlc-llm" */,
+				22CD3CDA2F879A96006AD27B /* XCRemoteSwiftPackageReference "llama" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 22929A5B2F6BF3AE00EB8779 /* Products */;
 			projectDirPath = "";
@@ -270,6 +274,9 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = SmartFitness/Info.plist;
+				INFOPLIST_KEY_NSCameraUsageDescription = "需要访问相机以拍摄食物识别热量";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "我们需要读取您的饮食热量数据";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "我们需要写入您的饮食热量数据";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -300,6 +307,9 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = SmartFitness/Info.plist;
+				INFOPLIST_KEY_NSCameraUsageDescription = "需要访问相机以拍摄食物识别热量";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "我们需要读取您的饮食热量数据";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "我们需要写入您的饮食热量数据";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -340,6 +350,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		22598DD52F863B3300E313E3 /* XCRemoteSwiftPackageReference "mlc-llm" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/mlc-ai/mlc-llm.git";
+			requirement = {
+				branch = main;
+				kind = branch;
+			};
+		};
+		22CD3CDA2F879A96006AD27B /* XCRemoteSwiftPackageReference "llama" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/ggerganov/llama.cpp";
+			requirement = {
+				branch = master;
+				kind = branch;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
 	};
 	rootObject = 22929A522F6BF3AE00EB8779 /* Project object */;
 }
