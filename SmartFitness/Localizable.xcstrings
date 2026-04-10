@@ -78,6 +78,18 @@
         }
       }
     },
+    "1 Day" : {
+
+    },
+    "1 Hour" : {
+
+    },
+    "5 Minutes" : {
+
+    },
+    "15 Minutes" : {
+
+    },
     "ABDOMINALS" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -271,9 +283,6 @@
         }
       }
     },
-    "Capture multiple pages, extract itinerary fast" : {
-
-    },
     "CHEST" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -290,9 +299,6 @@
           }
         }
       }
-    },
-    "Clear all" : {
-
     },
     "COMMAND CENTER" : {
 
@@ -313,9 +319,6 @@
           }
         }
       }
-    },
-    "Confidence 96% - AI interpreted" : {
-
     },
     "CONFIRM REPLACEMENT" : {
       "extractionState" : "manual",
@@ -419,12 +422,6 @@
         }
       }
     },
-    "Drop images or scan" : {
-
-    },
-    "END" : {
-
-    },
     "ENVIRONMENT" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -459,9 +456,6 @@
         }
       }
     },
-    "Event Title" : {
-
-    },
     "EXERCISE PLAN" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -495,12 +489,6 @@
           }
         }
       }
-    },
-    "Extract Itinerary" : {
-
-    },
-    "Extracted Schedule (Tap to edit)" : {
-
     },
     "FETCHING REMOTE RECORD..." : {
 
@@ -675,10 +663,7 @@
         }
       }
     },
-    "Itinerary added to your calendar." : {
-
-    },
-    "JPG, PNG, PDF • up to 10" : {
+    "JPG, PNG" : {
 
     },
     "KG" : {
@@ -739,9 +724,6 @@
       }
     },
     "Location" : {
-
-    },
-    "LOCATION" : {
 
     },
     "LOCATION TYPE" : {
@@ -934,9 +916,6 @@
         }
       }
     },
-    "OK" : {
-
-    },
     "OPTIMIZING..." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1005,9 +984,6 @@
         }
       }
     },
-    "REMARK" : {
-
-    },
     "REPLACEMENT MODE" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1042,12 +1018,6 @@
         }
       }
     },
-    "Save Calendar" : {
-
-    },
-    "Schedule Parser" : {
-
-    },
     "SEARCH EXERCISES..." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1066,9 +1036,6 @@
       }
     },
     "SEC" : {
-
-    },
-    "Selected (%lld)" : {
 
     },
     "SELECTED: " : {
@@ -1172,12 +1139,6 @@
           }
         }
       }
-    },
-    "START" : {
-
-    },
-    "Success" : {
-
     },
     "SYSTEM ERROR: " : {
       "extractionState" : "manual",
@@ -1392,6 +1353,9 @@
         }
       }
     },
+    "主题" : {
+
+    },
     "今日训练" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1425,6 +1389,12 @@
           }
         }
       }
+    },
+    "保存到日历" : {
+
+    },
+    "保存成功" : {
+
     },
     "健身房" : {
       "extractionState" : "manual",
@@ -1497,6 +1467,9 @@
         }
       }
     },
+    "地址" : {
+
+    },
     "地点：%@" : {
 
     },
@@ -1517,7 +1490,13 @@
         }
       }
     },
+    "备注" : {
+
+    },
     "备注：%@" : {
+
+    },
+    "好的" : {
 
     },
     "完成" : {
@@ -1554,7 +1533,16 @@
         }
       }
     },
+    "已选 (%lld)" : {
+
+    },
     "开始提取日程" : {
+
+    },
+    "开始时间" : {
+
+    },
+    "快速捕获多页内容，提取日历信息" : {
 
     },
     "总重量" : {
@@ -1645,6 +1633,18 @@
     "拍摄食物" : {
 
     },
+    "提取的日程表（点击编辑）" : {
+
+    },
+    "提取行程" : {
+
+    },
+    "提醒我" : {
+
+    },
+    "提醒时间" : {
+
+    },
     "新手" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1678,6 +1678,12 @@
           }
         }
       }
+    },
+    "日历助手" : {
+
+    },
+    "日历设置" : {
+
     },
     "时间" : {
       "extractionState" : "manual",
@@ -1915,6 +1921,12 @@
     "添加到系统日历" : {
 
     },
+    "添加图像" : {
+
+    },
+    "清空" : {
+
+    },
     "热量：%lf kcal / 100g" : {
 
     },
@@ -1968,6 +1980,9 @@
           }
         }
       }
+    },
+    "结束时间" : {
+
     },
     "编辑" : {
       "extractionState" : "manual",
@@ -2070,6 +2085,9 @@
           }
         }
       }
+    },
+    "行程已添加到您的日历中。" : {
+
     },
     "训练计划" : {
       "extractionState" : "manual",

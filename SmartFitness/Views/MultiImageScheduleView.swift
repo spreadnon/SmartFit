@@ -182,27 +182,32 @@ func extractScheduleFromCombinedText(text: String, completion: @escaping (Schedu
 }
 
 // 保存到日历
-func addToCalendarMulti(_ s: Schedule) {
+func addToCalendarMulti(_ s: Schedule, isReminderEnabled: Bool, reminderOffset: Int) {
     let status = EKEventStore.authorizationStatus(for: .event)
     
     if status == .fullAccess || status == .authorized {
-        saveEvent(schedule: s)
+        saveEvent(schedule: s, isReminderEnabled: isReminderEnabled, reminderOffset: reminderOffset)
         return
     }
     
     eventStore.requestFullAccessToEvents { granted, _ in
         DispatchQueue.main.async {
             guard granted else { return }
-            saveEvent(schedule: s)
+            saveEvent(schedule: s, isReminderEnabled: isReminderEnabled, reminderOffset: reminderOffset)
         }
     }
 }
 
-func saveEvent(schedule: Schedule) {
+func saveEvent(schedule: Schedule, isReminderEnabled: Bool, reminderOffset: Int) {
     let event = EKEvent(eventStore: eventStore)
     event.title = schedule.title
     event.location = schedule.location
     event.notes = schedule.remark
+    
+    if isReminderEnabled {
+        let alarm = EKAlarm(relativeOffset: -Double(reminderOffset * 60))
+        event.addAlarm(alarm)
+    }
     
     let df = DateFormatter()
     df.dateFormat = "yyyy-MM-dd HH:mm"
@@ -241,6 +246,17 @@ struct MultiImageScheduleView: View {
     @State private var stepAICompleted = false
     @State private var stepReadyCompleted = false
     
+    // Calendar Settings
+    @State private var isReminderEnabled = true
+    @State private var reminderOffset = 15 // minutes
+    
+    let reminderOptions = [
+        (NSLocalizedString("5 Minutes", comment: ""), 5),
+        (NSLocalizedString("15 Minutes", comment: ""), 15),
+        (NSLocalizedString("1 Hour", comment: ""), 60),
+        (NSLocalizedString("1 Day", comment: ""), 1440)
+    ]
+    
     var body: some View {
         ZStack {
             Color.white.ignoresSafeArea()
@@ -249,10 +265,10 @@ struct MultiImageScheduleView: View {
                 // Header
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Schedule Parser")
+                        Text("日历助手")
                             .font(.system(size: 28, weight: .bold))
                             .foregroundColor(.black)
-                        Text("Capture multiple pages, extract itinerary fast")
+                        Text("快速捕获多页内容，提取日历信息")
                             .font(.system(size: 14))
                             .foregroundColor(.gray.opacity(0.8))
                     }
@@ -279,7 +295,7 @@ struct MultiImageScheduleView: View {
                                 Text("Add documents")
                                     .font(.system(size: 16, weight: .bold))
                                 Spacer()
-                                Button("Clear all") {
+                                Button("清空") {
                                     // Resign focus to prevent crash during view dismissal
                                     UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
                                     
@@ -298,10 +314,10 @@ struct MultiImageScheduleView: View {
                                 showPicker = true
                             } label: {
                                 VStack(spacing: 8) {
-                                    Text("Drop images or scan")
+                                    Text("添加图像")
                                         .font(.system(size: 18, weight: .bold))
                                         .foregroundColor(.black)
-                                    Text("JPG, PNG, PDF • up to 10")
+                                    Text("JPG, PNG")
                                         .font(.system(size: 14))
                                         .foregroundColor(.gray)
                                 }
@@ -319,7 +335,7 @@ struct MultiImageScheduleView: View {
                         // Selected Images Section
                         if !selectedImages.isEmpty {
                             VStack(alignment: .leading, spacing: 12) {
-                                Text("Selected (\(selectedImages.count))")
+                                Text("已选 (\(selectedImages.count))")
                                     .font(.system(size: 14, weight: .bold))
                                     .foregroundColor(.gray)
                                 
@@ -356,13 +372,13 @@ struct MultiImageScheduleView: View {
                         // Extracted Text Section
                         if let _ = finalSchedule {
                             VStack(alignment: .leading, spacing: 12) {
-                                Text("Extracted Schedule (Tap to edit)")
+                                Text("提取的日程表（点击编辑）")
                                     .font(.system(size: 14, weight: .bold))
                                     .foregroundColor(.gray)
                                 
                                 if finalSchedule != nil {
                                     VStack(alignment: .leading, spacing: 16) {
-                                        TextField("Event Title", text: Binding(get: { finalSchedule?.title ?? "" }, set: { finalSchedule?.title = $0 }))
+                                        TextField("主题", text: Binding(get: { finalSchedule?.title ?? "" }, set: { finalSchedule?.title = $0 }))
                                             .font(.system(size: 18, weight: .bold))
                                             .foregroundColor(.black)
                                             .padding(8)
@@ -371,7 +387,7 @@ struct MultiImageScheduleView: View {
                                         
                                         HStack(spacing: 16) {
                                             VStack(alignment: .leading, spacing: 4) {
-                                                Text("START")
+                                                Text("开始时间")
                                                     .font(.system(size: 10, weight: .bold))
                                                     .foregroundColor(.gray)
                                                 TextField("MM-dd HH:mm", text: Binding(get: { finalSchedule?.start_time ?? "" }, set: { finalSchedule?.start_time = $0 }))
@@ -382,7 +398,7 @@ struct MultiImageScheduleView: View {
                                                     .cornerRadius(8)
                                             }
                                             VStack(alignment: .leading, spacing: 4) {
-                                                Text("END")
+                                                Text("结束时间")
                                                     .font(.system(size: 10, weight: .bold))
                                                     .foregroundColor(.gray)
                                                 TextField("MM-dd HH:mm", text: Binding(get: { finalSchedule?.end_time ?? "" }, set: { finalSchedule?.end_time = $0 }))
@@ -395,7 +411,7 @@ struct MultiImageScheduleView: View {
                                         }
                                         
                                         VStack(alignment: .leading, spacing: 4) {
-                                            Text("LOCATION")
+                                            Text("地址")
                                                 .font(.system(size: 10, weight: .bold))
                                                 .foregroundColor(.gray)
                                             TextField("Location", text: Binding(get: { finalSchedule?.location ?? "" }, set: { finalSchedule?.location = $0 }))
@@ -407,7 +423,7 @@ struct MultiImageScheduleView: View {
                                         }
                                         
                                         VStack(alignment: .leading, spacing: 4) {
-                                            Text("REMARK")
+                                            Text("备注")
                                                 .font(.system(size: 10, weight: .bold))
                                                 .foregroundColor(.gray)
                                             TextField("Add notes...", text: Binding(get: { finalSchedule?.remark ?? "" }, set: { finalSchedule?.remark = $0 }), axis: .vertical)
@@ -419,10 +435,10 @@ struct MultiImageScheduleView: View {
                                                 .cornerRadius(8)
                                         }
                                         
-                                        Text("Confidence 96% - AI interpreted")
-                                            .font(.system(size: 12))
-                                            .foregroundColor(.gray.opacity(0.5))
-                                            .padding(.top, 4)
+//                                        Text("Confidence 96% - AI interpreted")
+//                                            .font(.system(size: 12))
+//                                            .foregroundColor(.gray.opacity(0.5))
+//                                            .padding(.top, 4)
                                     }
                                     .padding(20)
                                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -435,6 +451,66 @@ struct MultiImageScheduleView: View {
                                 }
                             }
                         }
+                        
+                        // Calendar Settings Section
+                        if finalSchedule != nil {
+                            VStack(alignment: .leading, spacing: 16) {
+                                Text("日历设置")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundColor(.gray)
+                                
+                                VStack(spacing: 0) {
+                                    Toggle(isOn: $isReminderEnabled) {
+                                        HStack {
+                                            Image(systemName: "bell.fill")
+                                                .foregroundColor(.orange)
+                                            Text("提醒我")
+                                                .font(.system(size: 15))
+                                                .foregroundColor(.black)
+                                        }
+                                    }
+                                    .padding(.vertical, 12)
+                                    
+                                    if isReminderEnabled {
+                                        HStack {
+                                            Text("提醒时间")
+                                                .font(.system(size: 14))
+                                                .foregroundColor(.gray)
+                                            Spacer()
+                                            Menu {
+                                                ForEach(reminderOptions, id: \.1) { option in
+                                                    Button(option.0) {
+                                                        reminderOffset = option.1
+                                                    }
+                                                }
+                                            } label: {
+                                                HStack {
+                                                    Text(reminderOptions.first(where: { $0.1 == reminderOffset })?.0 ?? "15 分")
+                                                        .font(.system(size: 14, weight: .medium))
+                                                    Image(systemName: "chevron.up.chevron.down")
+                                                        .font(.system(size: 12))
+                                                }
+                                                .foregroundColor(.black)
+                                                .padding(.horizontal, 12)
+                                                .padding(.vertical, 6)
+                                                .background(Color.black.opacity(0.05))
+                                                .cornerRadius(8)
+                                            }
+                                        }
+                                        .padding(.bottom, 12)
+                                        .transition(.opacity)
+                                    }
+                                }
+                                .padding(.horizontal, 16)
+                                .background(Color(white: 0.98))
+                                .cornerRadius(16)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .stroke(Color.gray.opacity(0.1), lineWidth: 1)
+                                )
+                            }
+                        }
+                        
                         Spacer(minLength: 300)
                     }
                     .padding(24)
@@ -451,7 +527,7 @@ struct MultiImageScheduleView: View {
                                 ProgressView()
                                     .progressViewStyle(CircularProgressViewStyle(tint: .white))
                             } else {
-                                Text("Extract Itinerary")
+                                Text("提取行程")
                                     .font(.system(size: 16, weight: .bold))
                             }
                         }
@@ -464,10 +540,10 @@ struct MultiImageScheduleView: View {
                         
                         Button {
                             guard let s = finalSchedule else { return }
-                            addToCalendarMulti(s)
+                            addToCalendarMulti(s, isReminderEnabled: isReminderEnabled, reminderOffset: reminderOffset)
                             showSuccess = true
                         } label: {
-                            Text("Save Calendar")
+                            Text("保存到日历")
                                 .font(.system(size: 16, weight: .bold))
                                 .foregroundColor(.black)
                         }
@@ -491,10 +567,10 @@ struct MultiImageScheduleView: View {
         .sheet(isPresented: $showPicker) {
             MultiImagePicker(selectedImages: $selectedImages)
         }
-        .alert("Success", isPresented: $showSuccess) {
-            Button("OK") {}
+        .alert("保存成功", isPresented: $showSuccess) {
+            Button("好的") {}
         } message: {
-            Text("Itinerary added to your calendar.")
+            Text("行程已添加到您的日历中。")
         }
     }
     
