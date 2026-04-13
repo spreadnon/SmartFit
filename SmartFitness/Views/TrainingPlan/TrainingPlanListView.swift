@@ -113,6 +113,7 @@ struct TrainingPlanListView: View {
 //                FoodCalorieView()
 //                LocalLLMView()
                 MultiImageScheduleView()
+//                llmBitnetView()
             }
         }
     }

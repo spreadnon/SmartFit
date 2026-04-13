@@ -8,13 +8,8 @@ import EventKit
 let eventStore = EKEventStore()
 
 // 数据结构
-struct Schedule: Codable {
-    var title: String
-    var start_time: String
-    var end_time: String
-    var location: String
-    var remark: String
-}
+// Data structure is now imported from ScheduleModel.swift
+
 
 // 多选图片
 struct MultiImagePicker: UIViewControllerRepresentable {
@@ -246,6 +241,10 @@ struct MultiImageScheduleView: View {
     @State private var stepAICompleted = false
     @State private var stepReadyCompleted = false
     
+    // Image Interaction States
+    @State private var isEditingImages = false
+    @State private var selectedImageDetail: UIImage? = nil
+    
     // Calendar Settings
     @State private var isReminderEnabled = true
     @State private var reminderOffset = 15 // minutes
@@ -258,7 +257,9 @@ struct MultiImageScheduleView: View {
     ]
     
     var body: some View {
-        ZStack {
+        NavigationStack {
+            ZStack {
+
             Color.white.ignoresSafeArea()
             
             VStack(alignment: .leading, spacing: 0) {
@@ -273,15 +274,18 @@ struct MultiImageScheduleView: View {
                             .foregroundColor(.gray.opacity(0.8))
                     }
                     Spacer()
-                    Button {
-                        // Help action
+                    NavigationLink {
+                        scheduleHistoryView { record in
+                            loadRecordForEditing(record)
+                        }
                     } label: {
-                        Image(systemName: "questionmark")
+                        Image(systemName: "list.dash")
                             .font(.system(size: 14, weight: .bold))
                             .padding(10)
                             .background(Circle().stroke(Color.gray.opacity(0.3), lineWidth: 1))
                             .foregroundColor(.black)
                     }
+
                 }
                 .padding(.horizontal, 24)
                 .padding(.top, 20)
@@ -296,21 +300,16 @@ struct MultiImageScheduleView: View {
                                     .font(.system(size: 16, weight: .bold))
                                 Spacer()
                                 Button("清空") {
-                                    // Resign focus to prevent crash during view dismissal
-                                    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-                                    
-                                    withAnimation {
-                                        selectedImages.removeAll()
-                                        finalSchedule = nil
-                                        isProcessing = false
-                                        resetWorkflow()
-                                    }
+                                    clearData()
                                 }
                                 .font(.system(size: 14))
                                 .foregroundColor(.gray)
                             }
                             
                             Button {
+                                if finalSchedule != nil {
+                                    clearData()
+                                }
                                 showPicker = true
                             } label: {
                                 VStack(spacing: 8) {
@@ -335,22 +334,71 @@ struct MultiImageScheduleView: View {
                         // Selected Images Section
                         if !selectedImages.isEmpty {
                             VStack(alignment: .leading, spacing: 12) {
-                                Text("已选 (\(selectedImages.count))")
-                                    .font(.system(size: 14, weight: .bold))
-                                    .foregroundColor(.gray)
+                                HStack(alignment: .bottom) {
+                                    Text("已选 (\(selectedImages.count))")
+                                        .font(.system(size: 14, weight: .bold))
+                                        .foregroundColor(.gray)
+                                    Spacer()
+                                    if isEditingImages {
+                                        Button("完成") {
+                                            withAnimation { isEditingImages = false }
+                                        }
+                                        .font(.system(size: 12, weight: .bold))
+                                        .foregroundColor(.blue)
+                                    }
+                                }
                                 
+                                Text("1.点击可查看大图\n2.长按图片可编辑已选的图片（右上角有删除按钮）")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(.gray.opacity(0.7))
+                                    .padding(.bottom, 4)
+
                                 ScrollView(.horizontal, showsIndicators: false) {
                                     HStack(spacing: 12) {
-                                        ForEach(0..<selectedImages.count, id: \.self) { index in
-                                            Image(uiImage: selectedImages[index])
-                                                .resizable()
-                                                .aspectRatio(contentMode: .fill)
-                                                .frame(width: 80, height: 80)
-                                                .cornerRadius(12)
-                                                .overlay(
-                                                    RoundedRectangle(cornerRadius: 12)
-                                                        .stroke(Color.gray.opacity(0.2), lineWidth: 1)
-                                                )
+                                        ForEach(selectedImages.indices, id: \.self) { index in
+                                            ZStack(alignment: .topTrailing) {
+                                                Image(uiImage: selectedImages[index])
+                                                    .resizable()
+                                                    .aspectRatio(contentMode: .fill)
+                                                    .frame(width: 80, height: 80)
+                                                    .cornerRadius(12)
+                                                    .overlay(
+                                                        RoundedRectangle(cornerRadius: 12)
+                                                            .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+                                                    )
+                                                    .contentShape(Rectangle())
+                                                    .onTapGesture {
+                                                        if isEditingImages {
+                                                            // Maybe exit edit mode on tap? Or just ignore?
+                                                            // User didn't specify, but tap to preview is usually better.
+                                                            selectedImageDetail = selectedImages[index]
+                                                        } else {
+                                                            selectedImageDetail = selectedImages[index]
+                                                        }
+                                                    }
+                                                    .onLongPressGesture {
+                                                        withAnimation {
+                                                            isEditingImages = true
+                                                        }
+                                                    }
+                                                
+                                                if isEditingImages {
+                                                    Button {
+                                                        withAnimation {
+                                                            selectedImages.remove(at: index)
+                                                            if selectedImages.isEmpty {
+                                                                isEditingImages = false
+                                                            }
+                                                        }
+                                                    } label: {
+                                                        Image(systemName: "xmark.circle.fill")
+                                                            .font(.system(size: 20))
+                                                            .foregroundColor(.red)
+                                                            .background(Circle().fill(Color.white))
+                                                    }
+                                                    .offset(x: 8, y: -8)
+                                                }
+                                            }
                                         }
                                         
                                         Button {
@@ -364,6 +412,7 @@ struct MultiImageScheduleView: View {
                                                 .cornerRadius(12)
                                         }
                                     }
+                                    .padding(.top, 8)
                                 }
                             }
                         }
@@ -562,8 +611,10 @@ struct MultiImageScheduleView: View {
                 .padding(.bottom, 34)
                 .background(Color.white)
             }
+            }
         }
         .navigationBarHidden(true)
+
         .sheet(isPresented: $showPicker) {
             MultiImagePicker(selectedImages: $selectedImages)
         }
@@ -572,12 +623,46 @@ struct MultiImageScheduleView: View {
         } message: {
             Text("行程已添加到您的日历中。")
         }
+        .fullScreenCover(item: $selectedImageDetail) { image in
+            ZStack(alignment: .topTrailing) {
+                Color.black.ignoresSafeArea()
+                
+                Image(uiImage: image)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                
+                Button {
+                    selectedImageDetail = nil
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundColor(.white)
+                        .padding(12)
+                        .background(Circle().fill(Color.black.opacity(0.5)))
+                }
+                .padding(20)
+            }
+        }
     }
     
     private func resetWorkflow() {
         stepMergeCompleted = false
         stepAICompleted = false
         stepReadyCompleted = false
+    }
+    
+    private func clearData() {
+        // Resign focus to prevent crash during view dismissal
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        
+        withAnimation {
+            selectedImages.removeAll()
+            finalSchedule = nil
+            isProcessing = false
+            isEditingImages = false
+            resetWorkflow()
+        }
     }
     
     private func startProcessing() {
@@ -594,12 +679,39 @@ struct MultiImageScheduleView: View {
                         finalSchedule = s
                         stepAICompleted = true
                         stepReadyCompleted = true
+                        
+                        // Save to history
+                        ScheduleHistoryManager.shared.saveRecord(schedule: s, image: selectedImages.first)
                     }
+
                 }
             }
         }
     }
+    
+    private func loadRecordForEditing(_ record: ScheduleHistoryRecord) {
+        // Clear old data first
+        clearData()
+        
+        // Set new data
+        finalSchedule = record.schedule
+        if let imageName = record.imageName, let uiImage = ScheduleHistoryManager.shared.loadImage(named: imageName) {
+            selectedImages = [uiImage]
+        }
+        
+        // Mark as completed to show the edit UI immediately
+        stepMergeCompleted = true
+        stepAICompleted = true
+        stepReadyCompleted = true
+    }
 }
+
+// Helper for fullScreenCover item
+extension UIImage: Identifiable {
+    public var id: Int { self.hashValue }
+}
+
+
 
 struct WorkflowItem: View {
     let title: String
@@ -637,3 +749,11 @@ struct MultiImageScheduleView_Previews: PreviewProvider {
         MultiImageScheduleView()
     }
 }
+
+
+/**
+ 1.点击Image(systemName: "list.dash")后跳转到历史记录页面scheduleHistoryView，
+ 2.历史记录页面scheduleHistoryView.swift是每次“Text("提取行程")”的内容，用列表展示，section是识别的当天日期区分
+ 3.cell的展示内容包括图片，标题，时间，备注
+ 4.数据存在本地
+ */
