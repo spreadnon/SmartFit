@@ -6,6 +6,54 @@ class NetworkManager {
     static let shared = NetworkManager()
     private init() {}
 
+    private func handleResponse<T: Decodable>(_ data: Data?, _ response: URLResponse?, _ error: Error?, completion: @escaping (Result<T, Error>) -> Void) {
+        if let error = error {
+            DispatchQueue.main.async { completion(.failure(error)) }
+            return
+        }
+
+        guard let data = data else {
+            DispatchQueue.main.async { completion(.failure(NSError(domain: "NetworkManager", code: -2, userInfo: [NSLocalizedDescriptionKey: "No data received"]))) }
+            return
+        }
+
+        // Check for business codes in JSON first
+        if let base = try? JSONDecoder().decode(BaseResponse.self, from: data) {
+            if base.code == 401 {
+                print("🚨 401 Unauthorized detected in JSON code")
+                NotificationCenter.default.post(name: .unauthorized, object: nil)
+                DispatchQueue.main.async { completion(.failure(NSError(domain: "NetworkManager", code: 401, userInfo: [NSLocalizedDescriptionKey: base.msg ?? "登录已过期"]))) }
+                return
+            } else if base.code == 500 {
+                print("🚨 500 Server Error detected in JSON code")
+                DispatchQueue.main.async { completion(.failure(NSError(domain: "NetworkManager", code: 500, userInfo: [NSLocalizedDescriptionKey: base.msg ?? "服务器内部错误"]))) }
+                return
+            }
+        }
+
+        // Check HTTP status code
+        if let httpResponse = response as? HTTPURLResponse {
+            if httpResponse.statusCode == 401 {
+                print("🚨 401 Unauthorized detected in HTTP status")
+                NotificationCenter.default.post(name: .unauthorized, object: nil)
+                DispatchQueue.main.async { completion(.failure(NSError(domain: "NetworkManager", code: 401, userInfo: [NSLocalizedDescriptionKey: "登录已过期"]))) }
+                return
+            } else if (500...599).contains(httpResponse.statusCode) {
+                print("🚨 \(httpResponse.statusCode) Server Error detected in HTTP status")
+                DispatchQueue.main.async { completion(.failure(NSError(domain: "NetworkManager", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: "服务器错误: \(httpResponse.statusCode)"]))) }
+                return
+            }
+        }
+
+        do {
+            let decoded = try JSONDecoder().decode(T.self, from: data)
+            DispatchQueue.main.async { completion(.success(decoded)) }
+        } catch {
+            print("❌ Decoding error: \(error)")
+            DispatchQueue.main.async { completion(.failure(error)) }
+        }
+    }
+
     func generatePlan(level: TrainingLevel, frequency: TrainingFrequency, scene: TrainingScene, injuries: Set<Injury>, token: String? = nil, completion: @escaping (Result<TrainingPlan, Error>) -> Void) {
         let urlString = hostName + "/generate-plan" // 请尝试替换为您的电脑局域网 IP
         print("🚀 发送请求到: \(urlString)")
@@ -36,30 +84,19 @@ class NetworkManager {
         }
 
         URLSession.shared.dataTask(with: request) { data, response, error in
-            if let error = error {
-                completion(.failure(error))
-                return
-            }
-
-            guard let data = data else {
-                completion(.failure(NSError(domain: "", code: -2, userInfo: [NSLocalizedDescriptionKey: "No data received"])))
-                return
-            }
-
-            do {
-                let apiResponse = try JSONDecoder().decode(PlanResponse.self, from: data)
-                let trainingPlan = apiResponse.toTrainingPlan()
-                DispatchQueue.main.async {
-                    completion(.success(trainingPlan))
+            self.handleResponse(data, response, error) { (result: Result<PlanResponse, Error>) in
+                switch result {
+                case .success(let apiResponse):
+                    completion(.success(apiResponse.toTrainingPlan()))
+                case .failure(let error):
+                    completion(.failure(error))
                 }
-            } catch {
-                completion(.failure(error))
             }
         }.resume()
     }
 
     func saveTraining(record: TrainingRecord, token: String?, completion: @escaping (Result<Void, Error>) -> Void) {
-        let urlString = hostName + "/savetraining"
+        let urlString = hostName + "/api/training/savetraining"
         guard let url = URL(string: urlString) else {
             completion(.failure(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])))
             return
@@ -83,19 +120,13 @@ class NetworkManager {
         }
 
         URLSession.shared.dataTask(with: request) { data, response, error in
-            if let error = error {
-                completion(.failure(error))
-                return
-            }
-            
-            // Check status code
-            if let httpResponse = response as? HTTPURLResponse, !(200...299).contains(httpResponse.statusCode) {
-                completion(.failure(NSError(domain: "", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: "Server error: \(httpResponse.statusCode)"])))
-                return
-            }
-
-            DispatchQueue.main.async {
-                completion(.success(()))
+            self.handleResponse(data, response, error) { (result: Result<BaseResponse, Error>) in
+                switch result {
+                case .success:
+                    completion(.success(()))
+                case .failure(let error):
+                    completion(.failure(error))
+                }
             }
         }.resume()
     }
@@ -121,84 +152,50 @@ class NetworkManager {
         }
 
         URLSession.shared.dataTask(with: request) { data, response, error in
-            if let error = error {
-                completion(.failure(error))
-                return
-            }
-
-            guard let data = data else {
-                completion(.success(nil))
-                return
-            }
-            
-            if let jsonString = String(data: data, encoding: .utf8) {
-                print("🚀 GET Training Response JSON: \(jsonString)")
-            }
-            
-            // Check status code
+            // 特殊处理 404
             if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 404 {
-                // Not found is a valid case (no record for that day)
-                DispatchQueue.main.async {
-                    completion(.success(nil))
-                }
+                DispatchQueue.main.async { completion(.success(nil)) }
                 return
             }
 
-            do {
-                // 后端返回的是一个数组，每个元素是一个动作日志
-                struct WrappedRecordResponse: Codable {
-                    let code: Int
-                    let msg: String?
-                    let data: [RemoteTrainingLog]?
-                }
-                
-                let decoder = JSONDecoder()
-                let wrapped = try decoder.decode(WrappedRecordResponse.self, from: data)
-                
-                if let logs = wrapped.data, !logs.isEmpty {
-                    // 将服务器返回的打平后的日志数组转换回 TrainingRecord 结构
-                    let dateString = logs.first?.logDate ?? ""
-                    let formatter = DateFormatter()
-                    formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
-                    let date = formatter.date(from: dateString) ?? Date()
-                    
-                    let exercises = logs.map { log -> Exercise in
-                        // 为每个动作创建一个 Exercise 对象
-                        var exercise = Exercise(
-                            order: 1, // 顺序信息暂时不全，设为1
-                            exerciseName: log.exerciseName,
-                            sets: log.sets,
-                            reps: log.reps,
-                            equipment: "",
-                            difficulty: ""
-                        )
-                        // 根据 weight 设置各组数据（假设各组重量一致）
-                        let repsInt = Int(log.reps.components(separatedBy: CharacterSet.decimalDigits.inverted).first ?? "10") ?? 10
-                        exercise.exerciseSets = (0..<log.sets).map { _ in
-                            ExerciseSet(weight: log.weight, reps: repsInt, isCompleted: true)
+            self.handleResponse(data, response, error) { (result: Result<TrainingHistoryResponse, Error>) in
+                switch result {
+                case .success(let history):
+                    if let historyList = history.data, let historyData = historyList.first {
+                        // Map the new structured response to the internal TrainingRecord
+                        let df = DateFormatter()
+                        df.dateFormat = "yyyy-MM-dd"
+                        let date = df.date(from: historyData.date) ?? Date()
+                        
+                        let exercises = historyData.exercises.map { hEx -> Exercise in
+                            var exercise = Exercise(
+                                order: 1,
+                                exerciseName: hEx.exerciseName,
+                                sets: hEx.sets,
+                                reps: "\(hEx.detailedSets.first?.reps ?? 10)",
+                                equipment: "",
+                                difficulty: ""
+                            )
+                            // In the new API, maxWeight is provided per exercise
+                            // The detailedSets contain the actual recorded sets
+                            exercise.exerciseSets = hEx.detailedSets
+                            return exercise
                         }
-                        return exercise
-                    }
-                    
-                    let record = TrainingRecord(
-                        date: date,
-                        focusArea: "REMOTE SYNC",
-                        exercises: exercises,
-                        duration: 0, // 后端没存时长，设为0
-                        isCompleted: true
-                    )
-                    
-                    DispatchQueue.main.async {
+                        
+                        let record = TrainingRecord(
+                            date: date,
+                            focusArea: historyData.summary.focusAreas.joined(separator: " / "),
+                            exercises: exercises,
+                            duration: historyData.summary.totalDuration,
+                            isCompleted: true // If it's in history, it's generally considered completed
+                        )
                         completion(.success(record))
-                    }
-                } else {
-                    DispatchQueue.main.async {
+                    } else {
                         completion(.success(nil))
                     }
+                case .failure(let error):
+                    completion(.failure(error))
                 }
-            } catch {
-                print("Decoding failed for getTraining: \(error)")
-                completion(.failure(error))
             }
         }.resume()
     }

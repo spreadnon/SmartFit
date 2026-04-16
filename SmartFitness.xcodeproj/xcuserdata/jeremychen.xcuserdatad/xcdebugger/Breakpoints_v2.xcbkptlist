@@ -84,5 +84,51 @@
             landmarkType = "9">
          </BreakpointContent>
       </BreakpointProxy>
+      <BreakpointProxy
+         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
+         <BreakpointContent
+            uuid = "F1059966-B5BC-4D8A-8ADB-1E391AEECD42"
+            shouldBeEnabled = "Yes"
+            ignoreCount = "0"
+            continueAfterRunningActions = "No"
+            filePath = "SmartFitness/Views/TrainingPlan/GeneratePlanView.swift"
+            startingColumnNumber = "9223372036854775807"
+            endingColumnNumber = "9223372036854775807"
+            startingLineNumber = "216"
+            endingLineNumber = "216"
+            landmarkName = "generatePlan()"
+            landmarkType = "7">
+            <Locations>
+               <Location
+                  uuid = "F1059966-B5BC-4D8A-8ADB-1E391AEECD42 - 824ac54b1ee9698d"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "closure #1 (Swift.Result&lt;SmartFitness.TrainingPlan, Swift.Error&gt;) -&gt; () in SmartFitness.GeneratePlanView.generatePlan() -&gt; ()"
+                  moduleName = "SmartFitness.debug.dylib"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/jeremychen/Documents/SmartFit/SmartFitness/Views/TrainingPlan/GeneratePlanView.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "216"
+                  endingLineNumber = "216">
+               </Location>
+               <Location
+                  uuid = "F1059966-B5BC-4D8A-8ADB-1E391AEECD42 - ce9424114dfe183e"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "closure #1 () -&gt; () in closure #1 (Swift.Result&lt;SmartFitness.TrainingPlan, Swift.Error&gt;) -&gt; () in SmartFitness.GeneratePlanView.generatePlan() -&gt; ()"
+                  moduleName = "SmartFitness.debug.dylib"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/jeremychen/Documents/SmartFit/SmartFitness/Views/TrainingPlan/GeneratePlanView.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "217"
+                  endingLineNumber = "217">
+               </Location>
+            </Locations>
+         </BreakpointContent>
+      </BreakpointProxy>
    </Breakpoints>
 </Bucket>

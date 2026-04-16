@@ -35,9 +35,8 @@ struct TrainingPlanListView: View {
                             Spacer()
                         }
                         
-                        if let plan = appData.aiSmartPlan ?? appData.manualPlan, let day = plan.days.first, !day.isCompleted {
-                            // AI or Manual Plan Current Day
-                            aiPlanArrangementCard(plan: plan, day: day)
+                        if let plan = appData.aiSmartPlan ?? appData.manualPlan {
+                            aiPlanArrangementCard(plan: plan)
                         } else {
                             // Empty State
                             emptyStateSection
@@ -109,10 +108,11 @@ struct TrainingPlanListView: View {
             }
             .navigationBarHidden(true)
             .sheet(isPresented: $showingGeneratePlan){
-//                GeneratePlanView()
+                GeneratePlanView()
 //                FoodCalorieView()
 //                LocalLLMView()
-                MultiImageScheduleView()
+//                MultiImageScheduleView()
+//                DrinkOCRView()
 //                llmBitnetView()
             }
         }
@@ -209,23 +209,39 @@ struct TrainingPlanListView: View {
         // }
     }
     
-    private func aiPlanArrangementCard(plan: TrainingPlan, day: TrainingDay) -> some View {
-        let index = plan.days.firstIndex(where: { $0.id == day.id }) ?? 0
-        let playName = plan.trainingSplit == "MANUAL" ? NSLocalizedString("手动训练计划", comment: "") : NSLocalizedString("AI智能计划", comment: "")
+    private func aiPlanArrangementCard(plan: TrainingPlan) -> some View {
+        let isManual = plan.trainingSplit == "自选训练" || plan.trainingSplit == "MANUAL"
+        let nextDayIndex = plan.days.firstIndex(where: { !$0.isCompleted }) ?? 0
+        let planTitle = plan.trainingSplit
         
-        return NavigationLink(destination: TrainingPlanDetailView(plan: plan, selectedDayIndex: index)) {
-            VStack(alignment: .leading, spacing: 24) {
-                HStack {
-                   
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("IN PROGRESS")
-                            .font(StitchTypography.labelSmall)
-                            .foregroundColor(StitchTheme.onSurfaceVariant)
-                        Text(playName)
-                            .font(StitchTypography.dataLarge)
-                            .foregroundColor(StitchTheme.primaryContainer)
-                    }
-                    Spacer()
+        let progress: CGFloat
+        let progressDetail: String
+        
+        if isManual, let firstDay = plan.days.first {
+            let allSets = firstDay.exercises.flatMap { $0.exerciseSets }
+            let completedCount = allSets.filter { $0.isCompleted }.count
+            let totalCount = max(allSets.count, 1)
+            progress = CGFloat(completedCount) / CGFloat(totalCount)
+            progressDetail = "\(completedCount)/\(allSets.count) 组"
+        } else {
+            let completedCount = plan.days.filter { $0.isCompleted }.count
+            let totalCount = max(plan.days.count, 1)
+            progress = CGFloat(completedCount) / CGFloat(totalCount)
+            progressDetail = "\(completedCount)/\(plan.days.count) 天"
+        }
+        
+        return VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("IN PROGRESS")
+                        .font(StitchTypography.labelSmall)
+                        .foregroundColor(StitchTheme.onSurfaceVariant)
+                    Text(planTitle)
+                        .font(StitchTypography.dataLarge)
+                        .foregroundColor(StitchTheme.primaryContainer)
+                }
+                Spacer()
+                NavigationLink(destination: TrainingPlanDetailView(plan: plan, selectedDayIndex: nextDayIndex)) {
                     Image(systemName: "play.fill")
                         .font(.title2)
                         .foregroundColor(StitchTheme.onPrimaryFixed)
@@ -233,17 +249,84 @@ struct TrainingPlanListView: View {
                         .background(StitchTheme.primaryContainer)
                         .clipShape(Circle())
                 }
+            }
+            
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("进度")
+                        .font(StitchTypography.labelSmall)
+                        .foregroundColor(StitchTheme.onSurfaceVariant)
+                    Spacer()
+                    Text("\(progressDetail) · \(Int(progress * 100))%")
+                        .font(StitchTypography.labelSmall)
+                        .foregroundColor(StitchTheme.primaryContainer)
+                }
                 
-                HStack(spacing: 32) {
-                    hudStat(label: "EXERCISES", value: "\(day.exercises.count)")
-                    hudStat(label: "TIME", value: "45M")
-                    hudStat(label: "AREA", value: plan.trainingSplit.uppercased())
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(StitchTheme.surfaceContainerHighest)
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(StitchTheme.primaryContainer)
+                            .frame(width: geo.size.width * progress)
+                    }
+                }
+                .frame(height: 8)
+            }
+            
+            VStack(spacing: 10) {
+                ForEach(Array(plan.days.enumerated()), id: \.offset) { index, day in
+                    let focusTitle = currentDayFocusTitle(for: day)
+                    NavigationLink(destination: TrainingPlanDetailView(plan: plan, selectedDayIndex: index)) {
+                        HStack(spacing: 10) {
+                            Text(day.label)
+                                .font(StitchTypography.label)
+                                .foregroundColor(day.isCompleted ? StitchTheme.onSurfaceVariant : StitchTheme.primaryContainer)
+                                .strikethrough(day.isCompleted, color: StitchTheme.onSurfaceVariant)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.8)
+                                .frame(width: 72, alignment: .leading)
+                            
+                            Text(focusTitle)
+                                .font(StitchTypography.label)
+                                .foregroundColor(day.isCompleted ? StitchTheme.onSurfaceVariant : StitchTheme.onSurface)
+                                .strikethrough(day.isCompleted, color: StitchTheme.onSurfaceVariant)
+                                .lineLimit(1)
+                            
+                            Spacer()
+                            
+                            Text("\(day.exercises.count) 项")
+                                .font(StitchTypography.labelSmall)
+                                .foregroundColor(StitchTheme.onSurfaceVariant)
+                            
+                            Image(systemName: day.isCompleted ? "checkmark.circle.fill" : "chevron.right")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(day.isCompleted ? StitchTheme.primaryContainer : StitchTheme.onSurfaceVariant)
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 10)
+                        .background(StitchTheme.surfaceContainerLow)
+                        .cornerRadius(8)
+                    }
                 }
             }
-            .padding(24)
-            .background(StitchTheme.surfaceContainer)
-            .cornerRadius(12)
         }
+        .padding(24)
+        .background(StitchTheme.surfaceContainer)
+        .cornerRadius(12)
+    }
+    
+    private func currentDayFocusTitle(for day: TrainingDay) -> String {
+        let muscles = day.exercises
+            .flatMap { $0.localizedMuscleNames.isEmpty ? $0.primaryMuscles : $0.localizedMuscleNames }
+            .map { $0.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        
+        let uniqueMuscles = Array(NSOrderedSet(array: muscles)) as? [String] ?? []
+        if !uniqueMuscles.isEmpty {
+            return uniqueMuscles.prefix(2).joined(separator: " / ")
+        }
+        return NSLocalizedString("全身", comment: "")
     }
     
     

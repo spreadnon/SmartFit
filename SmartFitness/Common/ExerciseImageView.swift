@@ -5,6 +5,10 @@ struct ExerciseImageView: View {
     
     @State private var uiImage: UIImage? = nil
     
+    init(imagePath: String) {
+        self.imagePath = imagePath
+    }
+    
     var body: some View {
         Group {
             if let uiImage = uiImage {
@@ -33,38 +37,43 @@ struct ExerciseImageView: View {
     private func loadImage() {
         if imagePath.isEmpty { return }
         
-        // JSON imagePath is like "3_4_Sit-Up_0"
-        // Actual files are in "exercises/3_4_Sit-Up/3_4_Sit-Up_0.jpg"
+        // Normalize imagePath: replace "/" with "_" and remove ".jpg" extension
+        let effectiveImagePath = imagePath
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: ".jpg", with: "")
         
-        // Try exact name as resource everywhere first
-        if let path = Bundle.main.path(forResource: imagePath, ofType: "jpg") {
+        // 1. Try UIImage(named:) first - most robust for Assets and regular Groups
+        if let img = UIImage(named: effectiveImagePath) {
+            self.uiImage = img
+            return
+        }
+        
+        // 2. Try direct asset/resource lookup in bundle root (flattened)
+        if let path = Bundle.main.path(forResource: effectiveImagePath, ofType: "jpg") {
             self.uiImage = UIImage(contentsOfFile: path)
             if self.uiImage != nil { return }
         }
         
-        // Try extracting folder from name (FOLDER_INDEX -> FOLDER)
-        let parts = imagePath.components(separatedBy: "_")
+        // 3. Resolve folder structure using underscores (e.g., "Folder_Name_0" -> folder "Folder_Name")
+        let parts = effectiveImagePath.components(separatedBy: "_")
+        let folder: String
         if parts.count > 1 {
-            let folder = parts.dropLast().joined(separator: "_")
-            let fileName = imagePath
-            
-            // Try: exercises/folder/fileName.jpg
-            if let path = Bundle.main.path(forResource: fileName, ofType: "jpg", inDirectory: "exercises/\(folder)") {
-                self.uiImage = UIImage(contentsOfFile: path)
-                if self.uiImage != nil { return }
-            }
-            
-            // Try: exercises/fileName.jpg (if not in subfolder)
-            if let path = Bundle.main.path(forResource: fileName, ofType: "jpg", inDirectory: "exercises") {
+            folder = parts.dropLast().joined(separator: "_")
+        } else {
+            folder = ""
+        }
+        
+        // 4. Try looking inside the "exercises" subdirectories (structured Folder References)
+        if !folder.isEmpty {
+            // Try: exercises/folder/effectiveImagePath.jpg
+            if let path = Bundle.main.path(forResource: effectiveImagePath, ofType: "jpg", inDirectory: "exercises/\(folder)") {
                 self.uiImage = UIImage(contentsOfFile: path)
                 if self.uiImage != nil { return }
             }
         }
         
-        // Final broad fallbacks for named images/assets
-        if let img = UIImage(named: imagePath) {
-            self.uiImage = img
-        } else if let img = UIImage(named: "exercises/\(imagePath)") {
+        // 5. Final broad fallbacks for named images with prefixes
+        if let img = UIImage(named: "exercises/\(effectiveImagePath)") {
             self.uiImage = img
         }
     }

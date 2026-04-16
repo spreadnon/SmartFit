@@ -9,6 +9,7 @@ struct TrainingPlanDetailView: View {
     @State private var activePlanType: Int // 0: AI, 1: MANUAL
     
     @State private var selectedExercise: Exercise? = nil
+    @State private var hasInteracted = false
     
     // Timer properties
     @State private var startTime = Date()
@@ -39,7 +40,7 @@ struct TrainingPlanDetailView: View {
             
             VStack(spacing: 0) {
                 ScrollView {
-                    VStack(spacing: 24) {
+                    VStack(spacing: 0) {
                         summarySection
                         exerciseListSection
                     }
@@ -60,7 +61,9 @@ struct TrainingPlanDetailView: View {
             }
         }
         .onReceive(timer) { _ in
-            sessionDuration = Date().timeIntervalSince(startTime)
+            if !isDayCompleted(index: selectedDayIndex) {
+                sessionDuration = Date().timeIntervalSince(startTime)
+            }
         }
         .onAppear {
             startTime = Date()
@@ -102,6 +105,11 @@ struct TrainingPlanDetailView: View {
         }
         
         if !exercises.isEmpty {
+            guard hasInteracted else {
+                print("ℹ️ No interaction with completion detected, skipping session save.")
+                return
+            }
+            
             // 1. 本地保存
             appData.saveSessionRecord(exercises: exercises, focusArea: focusArea, duration: sessionDuration)
             
@@ -128,36 +136,8 @@ struct TrainingPlanDetailView: View {
     @ViewBuilder
     private var summarySection: some View {
         VStack(spacing: 24) {
-//            // Segment Switcher
-//            Picker("PLAN TYPE", selection: $activePlanType) {
-//                Text("AI 智能计划").tag(0)
-//                Text("手动自选").tag(1)
-//            }
-//            .pickerStyle(.segmented)
-//            .padding(.horizontal, 20)
-//            .onChange(of: activePlanType) { newValue in
-//                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-//                if newValue == 0 {
-//                    // Switch to AI Plan
-//                    if appData.aiSmartPlan == nil {
-//                        appData.aiSmartPlan = plan
-//                    }
-//                } else {
-//                    // Switch to Manual
-//                    if appData.aiSmartPlan != nil {
-//                        appData.aiSmartPlan = nil
-//                    }
-//                }
-//            }
-
             if activePlanType == 0 {
-                // Day Selection for AI Plan
                 VStack(spacing: 12) {
-                    Text("一周计划")
-                        .font(StitchTypography.labelSmall)
-                        .tracking(3)
-                        .foregroundColor(StitchTheme.onSurfaceVariant)
-                    
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 12) {
                             ForEach(0..<plan.days.count, id: \.self) { index in
@@ -168,15 +148,16 @@ struct TrainingPlanDetailView: View {
                                     }
                                 }) {
                                     Text(plan.days[index].label)
-                                        .font(StitchTypography.dataMedium)
-                                        .foregroundColor(selectedDayIndex == index ? StitchTheme.onPrimaryFixed : (completed ? StitchTheme.primaryContainer : StitchTheme.onSurface))
-                                        .frame(width: 60, height: 60)
+                                        .font(StitchTypography.label)
+                                        .tracking(1.5)
+                                        .lineLimit(1)
+                                        .minimumScaleFactor(0.8)
+                                        .padding(.horizontal, 24)
+                                        .padding(.vertical, 10)
                                         .background(selectedDayIndex == index ? StitchTheme.primaryContainer : StitchTheme.surfaceContainerHigh)
-                                        .clipShape(Circle())
-                                        .overlay(
-                                            Circle()
-                                                .stroke(completed ? StitchTheme.primaryContainer.opacity(0.3) : StitchTheme.primaryContainer.opacity(selectedDayIndex == index ? 0.5 : 0), lineWidth: 4)
-                                        )
+                                        .foregroundColor(selectedDayIndex == index ? StitchTheme.onPrimaryFixed : (completed ? StitchTheme.primaryContainer : StitchTheme.onSurfaceVariant))
+                                        .cornerRadius(4)
+                                        .shadow(color: selectedDayIndex == index ? StitchTheme.primaryContainer.opacity(0.2) : .clear, radius: 10)
                                 }
                             }
                         }
@@ -199,6 +180,7 @@ struct TrainingPlanDetailView: View {
             }
         }
         .padding(.top, 24)
+        .padding(.bottom, activePlanType == 0 ? 4 : 0)
         .frame(maxWidth: .infinity, alignment: .center)
     }
     
@@ -216,7 +198,8 @@ struct TrainingPlanDetailView: View {
                 if dayIndex >= 0 {
                     let isLocked = isDayCompleted(index: dayIndex)
                     ForEach(planBinding.days[dayIndex].exercises.indices, id: \.self) { idx in
-                        ExerciseCard(exercise: planBinding.days[dayIndex].exercises[idx], isLocked: isLocked)
+                        ExerciseCard(exercise: planBinding.days[dayIndex].exercises[idx], isLocked: isLocked, onInteraction: { hasInteracted = true })
+                            .id("ai-day-\(dayIndex)-exercise-\(planBinding.days[dayIndex].exercises[idx].id)")
                     }
                 } else {
                     Color.clear.frame(height: 1)
@@ -230,7 +213,7 @@ struct TrainingPlanDetailView: View {
                     )
                     let exercises = planBinding.days[0].exercises
                     ForEach(exercises.indices, id: \.self) { idx in
-                        ExerciseCard(exercise: planBinding.days[0].exercises[idx])
+                        ExerciseCard(exercise: planBinding.days[0].exercises[idx], onInteraction: { hasInteracted = true })
                     }
                 } else {
                     emptyManualState
@@ -290,6 +273,7 @@ struct ExerciseCard: View {
     @Binding var exercise: Exercise
     var isEditable: Bool = true
     var isLocked: Bool = false
+    var onInteraction: (() -> Void)? = nil
     @State private var isCollapsed: Bool = false
     @State private var activeSheet: ActiveSheet?
     
@@ -385,7 +369,7 @@ struct ExerciseCard: View {
                         }
                     }
                     
-                    Text(exercise.primaryMuscles.isEmpty ? (exercise.focusArea.isEmpty ? "FOCUS" : exercise.focusArea.uppercased()) : exercise.localizedMuscleNames.joined(separator: " / ").uppercased())
+                    Text(!exercise.localizedMuscleNames.isEmpty ? exercise.localizedMuscleNames.joined(separator: " / ") : (exercise.focusArea.isEmpty ? "" : exercise.focusArea))
                         .font(StitchTypography.label)
                         .foregroundColor(StitchTheme.onSurfaceVariant)
                         .tracking(2.0)
@@ -533,6 +517,7 @@ struct ExerciseCard: View {
                     onCompleteTapped: {
                         withAnimation(.easeInOut(duration: 0.2)) {
                             exercise.exerciseSets[index].isCompleted.toggle()
+                            onInteraction?()
                             if exercise.exerciseSets[index].isCompleted {
                                 startRestTimer()
                             }

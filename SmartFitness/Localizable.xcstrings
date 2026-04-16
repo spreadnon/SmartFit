@@ -18,9 +18,6 @@
         }
       }
     },
-    " %lld 组" : {
-
-    },
     " PROTOCOL" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -48,6 +45,26 @@
         }
       }
     },
+    "%@ · %lld%%" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ · %2$lld%%"
+          }
+        }
+      }
+    },
+    "%@ %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ %2$@"
+          }
+        }
+      }
+    },
     "%@%@" : {
       "localizations" : {
         "en" : {
@@ -69,6 +86,18 @@
       }
     },
     "%lld" : {
+
+    },
+    "%lld 项" : {
+
+    },
+    "%lldkg" : {
+
+    },
+    "✅ 匹配成功" : {
+
+    },
+    "📷 相机扫描识别（真机）" : {
 
     },
     "🔥 TODAY'S CHALLENGE" : {
@@ -119,6 +148,9 @@
           }
         }
       }
+    },
+    "Active plans will appear here once started." : {
+
     },
     "ACTUAL DURATION" : {
       "extractionState" : "manual",
@@ -435,6 +467,9 @@
         }
       }
     },
+    "DURATION" : {
+
+    },
     "ENVIRONMENT" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -503,7 +538,10 @@
         }
       }
     },
-    "FETCHING REMOTE RECORD..." : {
+    "EXERCISES (%lld)" : {
+
+    },
+    "FETCHING RECORDS..." : {
 
     },
     "FOCUS AREA" : {
@@ -736,6 +774,9 @@
         }
       }
     },
+    "LOAD" : {
+
+    },
     "Location" : {
 
     },
@@ -806,6 +847,9 @@
           }
         }
       }
+    },
+    "MAX" : {
+
     },
     "ME (COMING SOON)" : {
       "extractionState" : "manual",
@@ -912,6 +956,9 @@
         }
       }
     },
+    "NO RECORD FOUND" : {
+
+    },
     "NO TRAINING PLAN ADDED TODAY" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -928,6 +975,9 @@
           }
         }
       }
+    },
+    "NO TREND DATA" : {
+
     },
     "OPTIMIZING..." : {
       "extractionState" : "manual",
@@ -1085,6 +1135,9 @@
         }
       }
     },
+    "SESSION OVERVIEW" : {
+
+    },
     "SESSIONS PER WEEK" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1101,6 +1154,12 @@
           }
         }
       }
+    },
+    "SET" : {
+
+    },
+    "SETS" : {
+
     },
     "SHOULDERS" : {
       "extractionState" : "manual",
@@ -1152,6 +1211,9 @@
           }
         }
       }
+    },
+    "STATUS" : {
+
     },
     "SYSTEM ERROR: " : {
       "extractionState" : "manual",
@@ -1210,6 +1272,9 @@
         }
       }
     },
+    "TODAY OVERVIEW" : {
+
+    },
     "TODAY SUMMARY" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1243,6 +1308,12 @@
           }
         }
       }
+    },
+    "TONS" : {
+
+    },
+    "TOP FOCUS" : {
+
     },
     "TOTAL SETS" : {
       "extractionState" : "manual",
@@ -1311,6 +1382,9 @@
           }
         }
       }
+    },
+    "VOL" : {
+
     },
     "WEIGHT (KG)" : {
       "extractionState" : "manual",
@@ -1426,6 +1500,9 @@
         }
       }
     },
+    "全身" : {
+
+    },
     "写入健康App" : {
 
     },
@@ -1487,6 +1564,12 @@
 
     },
     "取消" : {
+
+    },
+    "取消全选" : {
+
+    },
+    "含糖量：%lf g/100ml" : {
 
     },
     "地址" : {
@@ -1618,6 +1701,9 @@
         }
       }
     },
+    "手动搜索" : {
+
+    },
     "手动训练计划" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1665,6 +1751,9 @@
 
     },
     "提醒时间" : {
+
+    },
+    "整杯总糖：%lf g" : {
 
     },
     "新手" : {
@@ -1749,6 +1838,9 @@
           }
         }
       }
+    },
+    "未匹配到饮料" : {
+
     },
     "查看食物的热量" : {
 
@@ -1981,6 +2073,16 @@
     "确定要重新编辑这条记录吗？这会覆盖当前正在处理的内容。" : {
 
     },
+    "类型：%@ | %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "类型：%1$@ | %2$@"
+          }
+        }
+      }
+    },
     "组" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2160,6 +2262,15 @@
     "识别：%@" : {
 
     },
+    "识别内容：%@" : {
+
+    },
+    "输入饮料名称（如：可口可乐）" : {
+
+    },
+    "进度" : {
+
+    },
     "选择截图" : {
 
     },
@@ -2204,6 +2315,9 @@
 
     },
     "食物热量识别" : {
+
+    },
+    "饮料含糖查询" : {
 
     },
     "高手" : {

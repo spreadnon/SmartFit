@@ -1,6 +1,10 @@
 import Foundation
 import SwiftUI
 
+extension Notification.Name {
+    static let unauthorized = Notification.Name("apiUnauthorized")
+}
+
 // MARK: - App Global State
 class AppData: ObservableObject {
     @Published var currentUser: User? {
@@ -46,6 +50,16 @@ class AppData: ObservableObject {
         loadUser()
         loadPlan()
         loadRecords()
+        
+        NotificationCenter.default.addObserver(forName: .unauthorized, object: nil, queue: .main) { [weak self] _ in
+            self?.handleUnauthorized()
+        }
+    }
+    
+    private func handleUnauthorized() {
+        print("⚠️ 登录已过期，正在退出登录...")
+        self.currentUser = nil
+        resetPlan()
     }
     
     private func saveUser() {
@@ -68,7 +82,7 @@ class AppData: ObservableObject {
     
     func addToToday(exercises: [Exercise]) {
         self.manualPlan = TrainingPlan(
-            trainingSplit: "MANUAL",
+            trainingSplit: "自选训练",
             instructions: NSLocalizedString("CUSTOM SESSION", comment: ""),
             days: [TrainingDay(label: NSLocalizedString("TODAY", comment: ""), exercises: exercises)]
         )
@@ -218,6 +232,11 @@ class AppData: ObservableObject {
 }
 
 // MARK: - API Response Models
+struct BaseResponse: Codable {
+    let code: Int?
+    let msg: String?
+}
+
 struct PlanResponse: Codable {
     let code: Int
     let msg: String
@@ -227,9 +246,10 @@ struct PlanResponse: Codable {
         let days = data.dailyPlans.map { dailyPlan -> TrainingDay in
             let exercises = dailyPlan.exerciseList.map { exercise -> Exercise in
                 // 处理图片字符串拆分
-                let splitImages = exercise.images.flatMap { $0.components(separatedBy: ",") }
+                let splitImages = (exercise.images ?? []).flatMap { $0.components(separatedBy: ",") }
                 
                 return Exercise(
+                    backendId: exercise.id,
                     order: exercise.order,
                     exerciseName: exercise.exerciseName,
                     sets: exercise.sets,
@@ -237,7 +257,7 @@ struct PlanResponse: Codable {
                     equipment: exercise.equipment,
                     difficulty: exercise.difficulty,
                     images: splitImages,
-                    primaryMuscles: exercise.primaryMuscles,
+                    primaryMuscles: exercise.primaryMuscles ?? [],
                     restTime: 90
                 )
             }
@@ -269,16 +289,18 @@ struct DailyPlan: Codable {
 }
 
 struct APIExercise: Codable {
+    let id: String?
     let exerciseName: String
     let sets: Int
     let reps: String
     let order: Int
     let equipment: String
     let difficulty: String
-    let images: [String]
-    let primaryMuscles: [String]
+    let images: [String]?
+    let primaryMuscles: [String]?
 
     enum CodingKeys: String, CodingKey {
+        case id
         case exerciseName = "exercise_name"
         case sets, reps, order, equipment, difficulty, images
         case primaryMuscles = "primary_muscles"
@@ -383,6 +405,7 @@ struct ExerciseSet: Identifiable, Codable, Equatable {
 
 struct Exercise: Identifiable, Codable, Equatable {
     let id: UUID
+    let backendId: String?
     let order: Int
     let exerciseName: String
     var sets: Int
@@ -398,6 +421,7 @@ struct Exercise: Identifiable, Codable, Equatable {
     
     enum CodingKeys: String, CodingKey {
         case id, order, sets, reps, equipment, difficulty, images, instructions
+        case backendId = "backend_id"
         case exerciseName = "exercise_name"
         case focusArea = "focus_area"
         case primaryMuscles = "primary_muscles"
@@ -405,8 +429,9 @@ struct Exercise: Identifiable, Codable, Equatable {
         case restTime = "rest_time"
     }
     
-    init(id: UUID = UUID(), order: Int, exerciseName: String, sets: Int, reps: String, equipment: String, difficulty: String, images: [String] = [], instructions: String = "", focusArea: String = "", primaryMuscles: [String] = [], restTime: Int = 90) {
+    init(id: UUID = UUID(), backendId: String? = nil, order: Int, exerciseName: String, sets: Int, reps: String, equipment: String, difficulty: String, images: [String] = [], instructions: String = "", focusArea: String = "", primaryMuscles: [String] = [], restTime: Int = 90) {
         self.id = id
+        self.backendId = backendId
         self.order = order
         self.exerciseName = exerciseName
         self.sets = sets
@@ -544,6 +569,46 @@ struct User: Codable {
 }
 
 // MARK: - Server Response Models
+// MARK: - Updated History Response Models
+struct TrainingHistoryResponse: Codable {
+    let code: Int
+    let msg: String?
+    let data: [TrainingHistoryData]?
+}
+
+struct TrainingHistoryData: Codable {
+    let date: String
+    let summary: TrainingHistorySummary
+    let exercises: [TrainingHistoryExercise]
+}
+
+struct TrainingHistorySummary: Codable {
+    let totalVolume: Double
+    let totalDuration: TimeInterval
+    let focusAreas: [String]
+    
+    enum CodingKeys: String, CodingKey {
+        case totalVolume = "total_volume"
+        case totalDuration = "total_duration"
+        case focusAreas = "focus_areas"
+    }
+}
+
+struct TrainingHistoryExercise: Codable, Identifiable {
+    var id: String { exerciseName + "\(maxWeight)" }
+    let exerciseName: String
+    let maxWeight: Double
+    let sets: Int
+    let detailedSets: [ExerciseSet]
+    
+    enum CodingKeys: String, CodingKey {
+        case exerciseName = "exercise_name"
+        case maxWeight = "max_weight"
+        case sets
+        case detailedSets = "detailed_sets"
+    }
+}
+
 struct RemoteTrainingLog: Codable {
     let id: Int
     let exerciseName: String

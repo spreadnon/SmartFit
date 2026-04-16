@@ -219,6 +219,23 @@ struct GeneratePlanView: View {
                 }
             case .failure(let error):
                 self.errorMessage = NSLocalizedString("SYSTEM ERROR: ", comment: "") + error.localizedDescription.uppercased()
+                
+                /**
+                 {
+                   "code": 401,
+                   "msg": "登录已过期",
+                   "data": null
+                 }
+                 
+                 {
+                   "code": 500,
+                   "msg": "服务器内部错误: [错误详情]",
+                   "data": null
+                 }
+                 
+                 全局统一处理当code == 401时登录过期了 需要退出登录重新登录刷新token
+                 
+                 */
             }
         }
     }

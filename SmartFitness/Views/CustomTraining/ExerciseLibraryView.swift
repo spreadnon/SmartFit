@@ -6,31 +6,120 @@ struct ExerciseLibraryView: View {
     @State private var searchText = ""
     @State private var selectedCategory = "ALL"
     @State private var selectedExercises: [LibraryExercise] = []
+    @State private var sidebarLastFocusedKey: String?
+    @State private var isSidebarDragging = false
+    @FocusState private var isSearchFocused: Bool
     
-    let categories = ["ALL", "CHEST", "BACK", "LEGS", "SHOULDERS", "ARMS", "ABDOMINALS"]
-    
+    let categories = ["ALL", "CHEST", "BACK", "SHOULDERS", "LEGS", "ARMS", "ABDOMINALS", "GLUTES", "GYM", "HOME", "OUTDOOR"]
+    private let muscleGroupOrder = ["CHEST", "BACK", "SHOULDERS", "LEGS", "ARMS", "ABDOMINALS", "GLUTES", "STRETCHING", "GYM", "HOME", "OUTDOOR", "OTHER"]
+    private let muscleGroupTitles: [String: String] = [
+        "ALL": "全部",
+        "CHEST": "胸",
+        "BACK": "背",
+        "SHOULDERS": "肩",
+        "LEGS": "腿",
+        "ARMS": "手臂",
+        "ABDOMINALS": "腹部",
+        "GLUTES": "臀部",
+        "STRETCHING": "放松拉伸",
+        "GYM": "健身房",
+        "HOME": "居家",
+        "OUTDOOR": "户外",
+        "OTHER": "其他"
+    ]
+    //健身房 居家 户外
     var filteredExercises: [LibraryExercise] {
         store.exercises.filter { exercise in
-            let matchesSearch = searchText.isEmpty || 
-                               exercise.name.localizedCaseInsensitiveContains(searchText) || 
-                               exercise.nameCN.localizedCaseInsensitiveContains(searchText) ||
-                               exercise.localizedMuscleNames.contains { $0.localizedCaseInsensitiveContains(searchText) }
+            let matchesSearch = matchesSearchText(exercise)
                                
-            let matchesCategory = selectedCategory == "ALL" || 
-                                 exercise.primaryMuscles.contains { $0.localizedCaseInsensitiveContains(selectedCategory) } ||
-                                 exercise.localizedMuscleNames.contains { $0.localizedCaseInsensitiveContains(selectedCategory) }
+            let matchesCategory = matchesSelectedCategory(for: exercise)
             return matchesSearch && matchesCategory
         }
     }
     
+    private func matchesSelectedCategory(for exercise: LibraryExercise) -> Bool {
+        if selectedCategory == "ALL" { return true }
+        if ["GYM", "HOME", "OUTDOOR"].contains(selectedCategory) {
+            return environmentKey(for: exercise) == selectedCategory
+        }
+        return muscleGroupKey(for: exercise) == selectedCategory
+    }
+
+    private func matchesSearchText(_ exercise: LibraryExercise) -> Bool {
+        let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty { return true }
+
+        // Split by any whitespace to support multi-keyword search.
+        let keywords = trimmed
+            .components(separatedBy: .whitespacesAndNewlines)
+            .filter { !$0.isEmpty }
+
+        let searchTargets = [
+            exercise.name,
+            exercise.nameCN,
+            exercise.equipment ?? ""
+        ] + exercise.localizedMuscleNames
+
+        // A keyword matches if it can be found in raw text OR whitespace-normalized text.
+        // This allows matching names containing spaces even when users type with/without spaces.
+        return keywords.allSatisfy { keyword in
+            let normalizedKeyword = normalizedText(keyword)
+            return searchTargets.contains { target in
+                target.localizedCaseInsensitiveContains(keyword) ||
+                normalizedText(target).contains(normalizedKeyword)
+            }
+        }
+    }
+
+    private func normalizedText(_ text: String) -> String {
+        text
+            .lowercased()
+            .components(separatedBy: .whitespacesAndNewlines)
+            .joined()
+    }
+    
     private var groupedExercises: [String: [LibraryExercise]] {
         Dictionary(grouping: filteredExercises) { exercise in
-            String(exercise.name.prefix(1)).uppercased()
+            muscleGroupKey(for: exercise)
         }
     }
     
-    private var sortedInitialKeys: [String] {
-        groupedExercises.keys.sorted()
+    private var sortedGroupKeys: [String] {
+        muscleGroupOrder.filter { key in
+            !(groupedExercises[key] ?? []).isEmpty
+        }
+    }
+    
+    private func muscleGroupKey(for exercise: LibraryExercise) -> String {
+        let allMuscles = (exercise.primaryMuscles + exercise.localizedMuscleNames).map { $0.uppercased() }
+        if allMuscles.contains(where: { $0.contains("CHEST") || $0.contains("胸") }) { return "CHEST" }
+        if allMuscles.contains(where: { $0.contains("BACK") || $0.contains("背") }) { return "BACK" }
+        if allMuscles.contains(where: { $0.contains("SHOULDER") || $0.contains("肩") }) { return "SHOULDERS" }
+        if allMuscles.contains(where: { $0.contains("LEG") || $0.contains("QUAD") || $0.contains("HAMSTRING") || $0.contains("CALF") || $0.contains("腿") }) { return "LEGS" }
+        if allMuscles.contains(where: { $0.contains("ARM") || $0.contains("BICEP") || $0.contains("TRICEP") || $0.contains("手臂") }) { return "ARMS" }
+        if allMuscles.contains(where: { $0.contains("AB") || $0.contains("CORE") || $0.contains("腹") }) { return "ABDOMINALS" }
+        if allMuscles.contains(where: { $0.contains("GLUTE") || $0.contains("臀") || $0.contains("HIP") }) { return "GLUTES" }
+        if allMuscles.contains(where: { $0.contains("STRETCH") || $0.contains("MOBILITY") || $0.contains("WARMUP") || $0.contains("COOLDOWN") || $0.contains("拉伸") || $0.contains("放松") }) { return "STRETCHING" }
+        return "OTHER"
+    }
+    
+    private func environmentKey(for exercise: LibraryExercise) -> String {
+        let equipment = (exercise.equipment ?? "").uppercased()
+        let category = exercise.category.uppercased()
+        let name = exercise.name.uppercased()
+        
+        if equipment.contains("BARBELL") || equipment.contains("CABLE") || equipment.contains("MACHINE") ||
+            equipment.contains("SMITH") || equipment.contains("DUMBBELL") || equipment.contains("KETTLEBELL") {
+            return "GYM"
+        }
+        if equipment.contains("BODY ONLY") || equipment.contains("BODYWEIGHT") || equipment.contains("NONE") ||
+            category.contains("STRETCHING") || category.contains("PLYOMETRICS") {
+            return "HOME"
+        }
+        if category.contains("CARDIO") || name.contains("RUN") || name.contains("SPRINT") || name.contains("JOG") {
+            return "OUTDOOR"
+        }
+        return "GYM"
     }
     
     var body: some View {
@@ -47,12 +136,13 @@ struct ExerciseLibraryView: View {
                     ScrollView {
                         VStack(spacing: 24) {
                             searchSection
-                            categoryChipsSection
+                            categoryChipsSection(proxy: proxy)
                             exerciseGridSection(proxy: proxy)
                         }
                         .padding(.top, 24)
                         .padding(.bottom, 120) // Extra padding for the floating button
                     }
+                    .scrollDismissesKeyboard(.immediately)
                     .overlay(indexSidebar(proxy: proxy), alignment: .trailing)
                 }
             }
@@ -84,10 +174,22 @@ struct ExerciseLibraryView: View {
             Spacer()
             
             if !selectedExercises.isEmpty {
-                Text("\(NSLocalizedString("SELECTED: ", comment: ""))\(selectedExercises.count)")
-                    .font(StitchTypography.label)
-                    .foregroundColor(StitchTheme.primaryContainer)
-                    .padding(.bottom, 8)
+                HStack(spacing: 10) {
+                    Text("\(NSLocalizedString("SELECTED: ", comment: ""))\(selectedExercises.count)")
+                        .font(StitchTypography.label)
+                        .foregroundColor(StitchTheme.primaryContainer)
+                    
+                    Button("取消全选") {
+                        selectedExercises = []
+                    }
+                    .font(StitchTypography.labelSmall)
+                    .foregroundColor(StitchTheme.onPrimaryFixed)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(StitchTheme.primaryContainer.opacity(0.9))
+                    .cornerRadius(6)
+                }
+                .padding(.bottom, 8)
             }
         }
         .padding(.horizontal, 24)
@@ -115,15 +217,20 @@ struct ExerciseLibraryView: View {
                 .tracking(1.0)
                 .foregroundColor(StitchTheme.onSurface)
                 .submitLabel(.search)
+                .focused($isSearchFocused)
         }
         .padding(16)
         .background(StitchTheme.surfaceContainerLow)
         .cornerRadius(8)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            isSearchFocused = true
+        }
         .padding(.horizontal, 24)
     }
     
     @ViewBuilder
-    private var categoryChipsSection: some View {
+    private func categoryChipsSection(proxy: ScrollViewProxy) -> some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 12) {
                 ForEach(categories, id: \.self) { category in
@@ -131,8 +238,13 @@ struct ExerciseLibraryView: View {
                         withAnimation(.spring(response: 0.3)) {
                             selectedCategory = category
                         }
+                        if category != "ALL" {
+                            DispatchQueue.main.async {
+                                scrollToSection(category, proxy: proxy)
+                            }
+                        }
                     } label: {
-                        Text(LocalizedStringKey(category))
+                        Text(muscleGroupTitles[category] ?? category)
                             .font(StitchTypography.label)
                             .tracking(1.5)
                             .padding(.horizontal, 24)
@@ -168,14 +280,17 @@ struct ExerciseLibraryView: View {
             .padding(.top, 60)
         } else {
             VStack(alignment: .leading, spacing: 32) {
-                ForEach(sortedInitialKeys, id: \.self) { key in
+                ForEach(sortedGroupKeys, id: \.self) { key in
                     VStack(alignment: .leading, spacing: 16) {
-                        Text(key)
+                        Text(muscleGroupTitles[key] ?? key)
                             .font(StitchTypography.dataMedium)
                             .italic()
                             .foregroundColor(StitchTheme.onSurfaceVariant.opacity(0.5))
                             .padding(.horizontal, 24)
-                            .id(key) // For ScrollViewReader
+                        
+                        Color.clear
+                            .frame(height: 0)
+                            .id(sectionId(for: key))
                         
                         LazyVGrid(columns: columns, spacing: 16) {
                             ForEach(groupedExercises[key] ?? []) { exercise in
@@ -183,39 +298,51 @@ struct ExerciseLibraryView: View {
                                 LibraryExerciseCard(exercise: exercise, isSelected: isSelected) {
                                     toggleSelection(exercise)
                                 }
-                                .transition(.scale.combined(with: .opacity))
                             }
                         }
                         .padding(.horizontal, 24)
                     }
                 }
             }
-            .animation(.easeInOut(duration: 0.3), value: filteredExercises.count)
+            .animation(nil, value: selectedExercises.map(\.id))
         }
     }
     
     @ViewBuilder
     private func indexSidebar(proxy: ScrollViewProxy) -> some View {
-        if !sortedInitialKeys.isEmpty && filteredExercises.count > 10 {
+        if !sortedGroupKeys.isEmpty && filteredExercises.count > 10 {
             VStack(spacing: 0) {
                 Spacer()
-                VStack(spacing: 2) {
-                    ForEach(sortedInitialKeys, id: \.self) { key in
-                        Button {
-                            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                                proxy.scrollTo(key, anchor: .top)
+                GeometryReader { geometry in
+                    VStack(spacing: 2) {
+                        ForEach(sortedGroupKeys, id: \.self) { key in
+                            Button {
+                                scrollToSidebarKey(key, proxy: proxy)
+                            } label: {
+                                Text(muscleGroupTitles[key] ?? key)
+                                    .font(StitchTypography.labelSmall)
+                                    .foregroundColor(StitchTheme.primaryContainer)
+                                    .frame(width: 24, height: 20)
+                                    .contentShape(Rectangle())
                             }
-                            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
-                        } label: {
-                            Text(key)
-                                .font(StitchTypography.labelSmall)
-                                .foregroundColor(StitchTheme.primaryContainer)
-                                .frame(width: 24, height: 20)
-                                .contentShape(Rectangle())
                         }
                     }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                    .contentShape(Rectangle())
+                    .gesture(
+                        DragGesture(minimumDistance: 0)
+                            .onChanged { value in
+                                isSidebarDragging = true
+                                scrollToSidebarKey(at: value.location.y, in: geometry.size.height, proxy: proxy)
+                            }
+                            .onEnded { _ in
+                                isSidebarDragging = false
+                                sidebarLastFocusedKey = nil
+                            }
+                    )
                 }
                 .padding(.vertical, 12)
+                .frame(width: 32)
                 .background(
                     Capsule()
                         .fill(StitchTheme.surfaceContainerLow.opacity(0.6))
@@ -228,6 +355,43 @@ struct ExerciseLibraryView: View {
                 Spacer()
             }
             .transition(.move(edge: .trailing).combined(with: .opacity))
+        }
+    }
+
+    private func scrollToSidebarKey(_ key: String, proxy: ScrollViewProxy) {
+        if isSidebarDragging {
+            proxy.scrollTo(sectionId(for: key), anchor: .top)
+        } else {
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                proxy.scrollTo(sectionId(for: key), anchor: .top)
+            }
+        }
+        if sidebarLastFocusedKey != key {
+            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+            sidebarLastFocusedKey = key
+        }
+    }
+
+    private func scrollToSidebarKey(at yPosition: CGFloat, in totalHeight: CGFloat, proxy: ScrollViewProxy) {
+        guard !sortedGroupKeys.isEmpty, totalHeight > 0 else { return }
+        let clampedY = min(max(yPosition, 0), totalHeight - 1)
+        let ratio = clampedY / totalHeight
+        let index = min(Int(ratio * CGFloat(sortedGroupKeys.count)), sortedGroupKeys.count - 1)
+        let key = sortedGroupKeys[index]
+        if sidebarLastFocusedKey != key {
+            proxy.scrollTo(sectionId(for: key), anchor: .top)
+            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+            sidebarLastFocusedKey = key
+        }
+    }
+    
+    private func sectionId(for key: String) -> String {
+        "muscle-section-\(key)"
+    }
+    
+    private func scrollToSection(_ key: String, proxy: ScrollViewProxy) {
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
+            proxy.scrollTo(sectionId(for: key), anchor: .top)
         }
     }
     
@@ -289,6 +453,31 @@ struct LibraryExerciseCard: View {
     
     @State private var isHovered = false
     
+    private let equipmentTranslation: [String: String] = [
+        "body only": "仅自重",
+        "machine": "器械",
+        "cable": "绳索",
+        "dumbbell": "哑铃",
+        "barbell": "杠铃",
+        "kettlebell": "壶铃",
+        "medicine ball": "药球",
+        "exercise ball": "健身球",
+        "resistance band": "弹力带",
+        "foam roll": "泡沫轴",
+        "e-z curl bar": "曲杆",
+        "bench": "哑铃凳",
+        "smith machine": "史密斯机",
+        "kettlebells": "壶铃",
+        "other": "其他",
+        "bands":"弹力绳"
+    ]
+    
+    private var equipmentDisplayText: String {
+        let rawValue = exercise.equipment?.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines) ?? "body only"
+        let key = rawValue.lowercased()
+        return equipmentTranslation[key] ?? rawValue
+    }
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             // Image Placeholder/Loader
@@ -334,7 +523,7 @@ struct LibraryExerciseCard: View {
                     Image(systemName: "fitness.center")
                         .font(.system(size: 10))
                         .foregroundColor(StitchTheme.onSurfaceVariant)
-                    Text(LocalizedStringKey(exercise.equipment?.uppercased() ?? "BODY ONLY"))
+                    Text(equipmentDisplayText)
                         .font(StitchTypography.labelSmall)
                         .foregroundColor(StitchTheme.onSurfaceVariant)
                 }

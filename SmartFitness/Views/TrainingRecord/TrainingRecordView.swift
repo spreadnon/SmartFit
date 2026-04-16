@@ -48,8 +48,9 @@ struct TrainingRecordView: View {
     
     private func fetchRemoteRecordIfNeeded(for date: Date) {
         // Only fetch if local record is missing
-        let localRecord = appData.records.first(where: { Calendar.current.isDate($0.date, inSameDayAs: date) })
-        if localRecord == nil {
+//        let localRecord = appData.records.first(where: { Calendar.current.isDate($0.date, inSameDayAs: date) })
+//        print(localRecord)
+//        if localRecord == nil {
             isFetchingRemote = true
             NetworkManager.shared.getTraining(date: date, token: appData.currentUser?.token) { result in
                 isFetchingRemote = false
@@ -60,9 +61,10 @@ struct TrainingRecordView: View {
                     }
                 case .failure(let error):
                     print("❌ 远程记录获取失败: \(error.localizedDescription)")
+                    //在这里处理默认状态，停止loading并显示没有数据
                 }
             }
-        }
+//        }
     }
     
     @ViewBuilder
@@ -72,12 +74,6 @@ struct TrainingRecordView: View {
                 .font(StitchTypography.headlineLarge)
                 .italic()
                 .foregroundColor(StitchTheme.primaryContainer)
-//            
-//            Text("& RECORDS")
-//                .font(StitchTypography.headline)
-//                .italic()
-//                .foregroundColor(StitchTheme.onSurfaceVariant)
-            
             Spacer()
         }
         .padding(.horizontal, 24)
@@ -170,15 +166,17 @@ struct TrainingRecordView: View {
                                 .font(StitchTypography.bodyBold)
                                 .foregroundColor(isSelected ? StitchTheme.background : (isToday ? StitchTheme.primaryContainer : StitchTheme.onSurface))
                             
-                            // Indicator DOT
+                            // Focus indicator text
                             if let rec = record {
-                                Circle()
-                                    .fill(rec.isCompleted ? (isSelected ? StitchTheme.background : StitchTheme.primaryContainer) : StitchTheme.secondary)
-                                    .frame(width: 4, height: 4)
+                                Text(calendarFocusTag(for: rec))
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundColor(isSelected ? StitchTheme.background.opacity(0.9) : StitchTheme.primaryContainer)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.7)
+                                    .frame(maxWidth: .infinity)
                             } else {
-                                Circle()
-                                    .fill(Color.clear)
-                                    .frame(width: 4, height: 4)
+                                Color.clear
+                                    .frame(height: 10)
                             }
                         }
                         .frame(height: 50)
@@ -207,6 +205,36 @@ struct TrainingRecordView: View {
         return range.compactMap { day in
             Calendar.current.date(byAdding: .day, value: day - 1, to: startOfMonth)
         }
+    }
+    
+    private func calendarFocusTag(for record: TrainingRecord) -> String {
+        let muscles = Array(Set(record.exercises.flatMap { $0.localizedMuscleNames }))
+        let area = record.focusArea.lowercased()
+        
+        // 优先检查肌肉名称
+        if let first = muscles.first?.lowercased(), !first.isEmpty {
+            if first.contains("胸") || first.contains("chest") { return "胸" }
+            if first.contains("背") || first.contains("back") || first.contains("lats") { return "背" }
+            if first.contains("肩") || first.contains("shoulder") { return "肩" }
+            if first.contains("腿") || first.contains("leg") || first.contains("quad") || first.contains("ham") || first.contains("calf") { return "腿" }
+            if first.contains("臂") || first.contains("arm") || first.contains("bicep") || first.contains("tricep") { return "臂" }
+            if first.contains("腹") || first.contains("core") || first.contains("ab") { return "腹" }
+            if first.contains("臀") || first.contains("glute") { return "臀" }
+            return String(first.prefix(1)).uppercased()
+        }
+        
+        // 备选检查总体部位
+        if !area.isEmpty {
+            if area.contains("胸") || area.contains("chest") { return "胸" }
+            if area.contains("背") || area.contains("back") || area.contains("lats") { return "背" }
+            if area.contains("肩") || area.contains("shoulder") { return "肩" }
+            if area.contains("腿") || area.contains("leg") { return "腿" }
+            if area.contains("臂") || area.contains("arm") { return "臂" }
+            if area.contains("腹") || area.contains("core") || area.contains("ab") { return "腹" }
+            if area.contains("臀") || area.contains("glute") { return "臀" }
+            return String(area.prefix(1)).uppercased()
+        }
+        return "练"
     }
     
     @ViewBuilder
@@ -263,107 +291,343 @@ struct TrainingRecordView: View {
         let isToday = Calendar.current.isDateInToday(date)
         let record = appData.records.first(where: { Calendar.current.isDate($0.date, inSameDayAs: date) })
         
-        VStack(alignment: .leading, spacing: 16) {
-            Text(isToday ? "TODAY SUMMARY" : "DAILY SUMMARY")
+        VStack(alignment: .leading, spacing: 20) {
+            Text(isToday ? "TODAY OVERVIEW" : "SESSION OVERVIEW")
                 .font(StitchTypography.label)
                 .tracking(2.0)
                 .foregroundColor(StitchTheme.onSurfaceVariant)
                 .padding(.horizontal, 24)
             
-            VStack(alignment: .leading, spacing: 12) {
-                if isFetchingRemote {
-                    HStack {
-                        ProgressView()
-                            .tint(StitchTheme.primaryContainer)
-                        Text("FETCHING REMOTE RECORD...")
-                            .font(StitchTypography.labelSmall)
-                            .foregroundColor(StitchTheme.onSurfaceVariant)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .padding(.vertical, 20)
-                } else if let record = record {
-                    // Pre-recorded focus area is already localized or should be
-                    summaryRows(exercises: record.exercises, source: record.focusArea, duration: record.duration)
-                } else if isToday {
-                    // 如果是今天且没有记录，才显示活跃计划
-                    if let manualPlan = appData.manualPlan, let exercises = manualPlan.days.first?.exercises {
-                        summaryRows(exercises: exercises, source: NSLocalizedString("MANUAL PLAN", comment: ""))
-                    } else if let plan = appData.aiSmartPlan, let exercises = plan.days.first?.exercises {
-                        summaryRows(exercises: exercises, source: NSLocalizedString("AI SMART PLAN", comment: ""), extra: plan.trainingSplit)
-                    } else {
-                        noDataText("NO ACTIVE TRAINING PLAN")
-                    }
-                } else {
-                    noDataText("NO RECORD FOR THIS DAY")
+            if isFetchingRemote {
+                HStack(spacing: 12) {
+                    ProgressView()
+                        .tint(StitchTheme.primaryContainer)
+                    Text("FETCHING RECORDS...")
+                        .font(StitchTypography.labelSmall)
+                        .foregroundColor(StitchTheme.onSurfaceVariant)
                 }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 40)
+            } else if let record = record {
+                // Tier 1: Summary Card
+                WorkoutSummaryCard(record: record)
+                    .padding(.horizontal, 24)
+                
+                // Tier 2: Exercise List
+                VStack(spacing: 16) {
+                    Text("EXERCISES (\(record.exercises.count))")
+                        .font(StitchTypography.labelSmall)
+                        .tracking(1.5)
+                        .foregroundColor(StitchTheme.onSurfaceVariant)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 24)
+                    
+                    ForEach(record.exercises) { exercise in
+                        ExerciseRecordCard(exercise: exercise)
+                    }
+                }
+                .padding(.top, 8)
+            } else {
+                VStack(spacing: 16) {
+                    Image(systemName: "calendar.badge.exclamationmark")
+                        .font(.system(size: 40))
+                        .foregroundColor(StitchTheme.outline.opacity(0.3))
+                    
+                    Text("NO RECORD FOUND")
+                        .font(StitchTypography.label)
+                        .foregroundColor(StitchTheme.outline)
+                    
+                    if isToday {
+                        Text("Active plans will appear here once started.")
+                            .font(.system(size: 12))
+                            .foregroundColor(StitchTheme.onSurfaceVariant)
+                            .multilineTextAlignment(.center)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 60)
+                .background(StitchTheme.surfaceContainerLow)
+                .cornerRadius(12)
+                .padding(.horizontal, 24)
             }
-            .padding(20)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(StitchTheme.surfaceContainerLow)
-            .cornerRadius(12)
-            .padding(.horizontal, 24)
         }
-    }
-    
-    @ViewBuilder
-    private func summaryRows(exercises: [Exercise], source: String, extra: String? = nil, duration: TimeInterval? = nil) -> some View {
-        SummaryRow(title: "锻炼计划", value: "\(exercises.count) 动作")
-        SummaryRow(title: "计划来源", value: source == "CUSTOM" ? "自选" : "AI计划")
-        if let extra = extra {
-            SummaryRow(title: "重点部位", value: extra)
-        }
-        
-        let totalWeight = exercises.reduce(0.0) { $0 + $1.totalVolume }
-        let totalSets = exercises.reduce(0) { $0 + $1.exerciseSets.count }
-        
-        SummaryRow(title: "总重量", value: String(format: "%.1f KG", totalWeight))
-        SummaryRow(title: "总组数", value: String(format: NSLocalizedString(" %lld 组", comment: ""), totalSets))
-        
-        let allMuscles = Array(Set(exercises.flatMap { $0.localizedMuscleNames })).joined(separator: ", ")
-        if !allMuscles.isEmpty {
-            SummaryRow(title: "肌肉部位", value: allMuscles)
-        }
-        
-        if let duration = duration, duration > 0 {
-            SummaryRow(title: "实际训练时长", value: formatDuration(duration))
-        } else {
-            SummaryRow(title: "预计训练时长", value: "45 MIN")
-        }
-    }
-    
-    private func formatDuration(_ duration: TimeInterval) -> String {
-        let hours = Int(duration) / 3600
-        let minutes = Int(duration) / 60 % 60
-        let seconds = Int(duration) % 60
-        if hours > 0 {
-            return String(format: "%02d:%02d:%02d", hours, minutes, seconds)
-        } else {
-            return String(format: "%02d:%02d", minutes, seconds)
-        }
-    }
-    
-    @ViewBuilder
-    private func noDataText(_ text: String) -> some View {
-        Text(text)
-            .font(StitchTypography.body)
-            .foregroundColor(StitchTheme.outline)
-            .italic()
     }
 }
 
-struct SummaryRow: View {
-    let title: String
-    let value: String
+// MARK: - Workout Summary Card
+struct WorkoutSummaryCard: View {
+    let record: TrainingRecord
+    
+    var totalVolume: Double {
+        record.exercises.reduce(0) { $0 + $1.totalVolume }
+    }
     
     var body: some View {
-        HStack {
-            Text(title)
-                .font(StitchTypography.labelSmall)
-                .foregroundColor(StitchTheme.onSurfaceVariant)
-            Spacer()
-            Text(value)
-                .font(StitchTypography.label)
-                .foregroundColor(StitchTheme.primaryContainer)
+        VStack(spacing: 24) {
+            // Main Stats
+            HStack(spacing: 0) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("TOTAL VOLUME")
+                        .font(StitchTypography.labelSmall)
+                        .foregroundColor(StitchTheme.onPrimaryFixed.opacity(0.7))
+                    HStack(alignment: .firstTextBaseline, spacing: 4) {
+                        Text(String(format: "%.1f", totalVolume / 1000.0))
+                            .font(StitchTypography.headlineLarge)
+                            .italic()
+                        Text("TONS")
+                            .font(StitchTypography.label)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text("DURATION")
+                        .font(StitchTypography.labelSmall)
+                        .foregroundColor(StitchTheme.onPrimaryFixed.opacity(0.7))
+                    Text(formatDuration(record.duration))
+                        .font(StitchTypography.headline)
+                        .italic()
+                }
+            }
+            
+            Divider()
+                .background(StitchTheme.onPrimaryFixed.opacity(0.2))
+            
+            // Focus Area
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("TOP FOCUS")
+                        .font(StitchTypography.labelSmall)
+                        .foregroundColor(StitchTheme.onPrimaryFixed.opacity(0.7))
+                    Text(record.focusArea.uppercased())
+                        .font(StitchTypography.dataMedium)
+                        .italic()
+                }
+                Spacer()
+                Image(systemName: "flame.fill")
+                    .foregroundColor(StitchTheme.secondary)
+                    .font(.title2)
+            }
+        }
+        .padding(24)
+        .background(
+            ZStack {
+                StitchTheme.primaryContainer
+                LinearGradient(
+                    colors: [Color.black.opacity(0.2), Color.clear],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            }
+        )
+        .foregroundColor(StitchTheme.onPrimaryFixed)
+        .cornerRadius(16)
+        .shadow(color: StitchTheme.primaryContainer.opacity(0.3), radius: 15, x: 0, y: 8)
+    }
+    
+    private func formatDuration(_ duration: TimeInterval) -> String {
+        let minutes = Int(duration) / 60
+        let seconds = Int(duration) % 60
+        return String(format: "%02d:%02d", minutes, seconds)
+    }
+}
+
+struct ExerciseRecordCard: View {
+    let exercise: Exercise
+    @State private var isExpanded = false
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            Button(action: {
+                withAnimation(.spring()) {
+                    isExpanded.toggle()
+                }
+            }) {
+                HStack(spacing: 16) {
+                    // Muscle Group Indicator
+                    ZStack {
+                        Circle()
+                            .fill(StitchTheme.surfaceContainerHigh)
+                            .frame(width: 44, height: 44)
+                        Image(systemName: muscleIcon(for: exercise.focusArea))
+                            .foregroundColor(StitchTheme.primaryContainer)
+                    }
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(exercise.exerciseName.uppercased())
+                            .font(StitchTypography.bodyBold)
+                            .italic()
+                            .foregroundColor(StitchTheme.onSurface)
+                        Text(exercise.focusArea.uppercased())
+                            .font(StitchTypography.labelSmall)
+                            .tracking(1.0)
+                            .foregroundColor(StitchTheme.onSurfaceVariant)
+                    }
+                    
+                    Spacer()
+                    
+                    VStack(alignment: .trailing, spacing: 4) {
+                        HStack(spacing: 4) {
+                            Text("\(exercise.sets)")
+                                .font(StitchTypography.bodyBold)
+                            Text("SETS")
+                                .font(StitchTypography.labelSmall)
+                        }
+                        .foregroundColor(StitchTheme.onSurface)
+                        
+                        if exercise.isCompleted {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(.green)
+                                .font(.system(size: 14))
+                        }
+                    }
+                    
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(StitchTheme.outline)
+                        .rotationEffect(.degrees(isExpanded ? 180 : 0))
+                }
+                .padding(20)
+                .background(StitchTheme.surfaceContainerLow)
+            }
+            
+            if isExpanded {
+                VStack(spacing: 12) {
+                    // Set Breakdown Header
+                    HStack {
+                        Text("SET")
+                        Spacer()
+                        Text("LOAD")
+                        Spacer()
+                        Text("REPS")
+                        Spacer()
+                        Text("STATUS")
+                    }
+                    .font(StitchTypography.labelSmall)
+                    .foregroundColor(StitchTheme.onSurfaceVariant.opacity(0.6))
+                    .padding(.horizontal, 24)
+                    
+                    Divider()
+                        .padding(.horizontal, 20)
+                    
+                    // Simple Trend Chart
+                    WeightTrendChart(sets: exercise.exerciseSets)
+                        .frame(height: 40)
+                        .padding(.horizontal, 24)
+                        .padding(.vertical, 8)
+                    
+                    ForEach(Array(exercise.exerciseSets.enumerated()), id: \.offset) { index, set in
+                        HStack {
+                            Text("\(index + 1)")
+                                .font(StitchTypography.dataMedium)
+                                .frame(width: 30, alignment: .leading)
+                            Spacer()
+                            Text("\(Int(set.weight))kg")
+                                .font(StitchTypography.dataMedium)
+                                .foregroundColor(StitchTheme.primaryContainer)
+                            Spacer()
+                            Text("\(set.reps)")
+                                .font(StitchTypography.dataMedium)
+                            Spacer()
+                            Image(systemName: set.isCompleted ? "checkmark" : "xmark")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(set.isCompleted ? .green : .red)
+                                .frame(width: 40, alignment: .trailing)
+                        }
+                        .padding(.horizontal, 24)
+                        .padding(.vertical, 4)
+                    }
+                    
+                    // Mini Metric
+                    HStack {
+                        HStack(spacing: 4) {
+                            Text("MAX")
+                                .font(StitchTypography.labelSmall)
+                                .foregroundColor(StitchTheme.onSurfaceVariant)
+                            Text("\(Int(exercise.exerciseSets.map { $0.weight }.max() ?? 0))kg")
+                                .font(StitchTypography.bodyBold)
+                                .foregroundColor(StitchTheme.secondary)
+                        }
+                        Spacer()
+                        HStack(spacing: 4) {
+                            Text("VOL")
+                                .font(StitchTypography.labelSmall)
+                                .foregroundColor(StitchTheme.onSurfaceVariant)
+                            Text("\(Int(exercise.totalVolume))kg")
+                                .font(StitchTypography.bodyBold)
+                                .foregroundColor(StitchTheme.secondary)
+                        }
+                    }
+                    .padding(16)
+                    .background(StitchTheme.surfaceContainer)
+                    .cornerRadius(8)
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 20)
+                }
+                .background(StitchTheme.surfaceContainerLow)
+            }
+        }
+        .cornerRadius(12)
+        .padding(.horizontal, 24)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(StitchTheme.outlineVariant.opacity(0.2), lineWidth: 1)
+                .padding(.horizontal, 24)
+        )
+    }
+    
+    private func muscleIcon(for area: String) -> String {
+        let area = area.lowercased()
+        if area.contains("chest") || area.contains("胸") { return "figure.strengthtraining.traditional" }
+        if area.contains("back") || area.contains("背") { return "figure.handball" }
+        if area.contains("leg") || area.contains("腿") { return "figure.run" }
+        if area.contains("shoulder") || area.contains("肩") { return "figure.arms.open" }
+        if area.contains("arm") || area.contains("臂") { return "figure.strengthtraining.functional" }
+        return "figure.walk"
+    }
+}
+
+struct WeightTrendChart: View {
+    let sets: [ExerciseSet]
+    
+    var body: some View {
+        GeometryReader { geometry in
+            if sets.count > 1 {
+                let weights = sets.map { $0.weight }
+                let maxWeight = weights.max() ?? 1
+                let minWeight = weights.min() ?? 0
+                let diff = maxWeight - minWeight
+                let range = max(diff, 10.0) // At least 10kg range for visual scale
+                
+                Path { path in
+                    for (index, set) in sets.enumerated() {
+                        let x = CGFloat(index) / CGFloat(sets.count - 1) * geometry.size.width
+                        let y = geometry.size.height - (CGFloat(set.weight - minWeight) / CGFloat(range) * geometry.size.height)
+                        
+                        if index == 0 {
+                            path.move(to: CGPoint(x: x, y: y))
+                        } else {
+                            path.addLine(to: CGPoint(x: x, y: y))
+                        }
+                    }
+                }
+                .stroke(
+                    LinearGradient(
+                        colors: [StitchTheme.primaryContainer, StitchTheme.secondary],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    ),
+                    style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round)
+                )
+            } else {
+                HStack {
+                    Spacer()
+                    Text("NO TREND DATA")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(StitchTheme.outline.opacity(0.5))
+                    Spacer()
+                }
+            }
         }
     }
 }
