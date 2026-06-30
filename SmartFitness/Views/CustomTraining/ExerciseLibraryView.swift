@@ -265,7 +265,7 @@ var body: some View {
      if filteredExercises.isEmpty {
          emptyStateView
      } else {
-         exerciseListView()
+         exerciseListView
      }
  }
 
