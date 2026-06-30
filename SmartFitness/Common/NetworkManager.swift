@@ -55,7 +55,7 @@ class NetworkManager {
     }
 
     func generatePlan(level: TrainingLevel, frequency: TrainingFrequency, scene: TrainingScene, injuries: Set<Injury>, token: String? = nil, completion: @escaping (Result<TrainingPlan, Error>) -> Void) {
-        let urlString = hostName + "/generate-plan" // 请尝试替换为您的电脑局域网 IP
+        let urlString = hostName + "/api/plans/generate" // 请尝试替换为您的电脑局域网 IP
         print("🚀 发送请求到: \(urlString)")
         guard let url = URL(string: urlString) else {
             completion(.failure(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])))
@@ -96,7 +96,7 @@ class NetworkManager {
     }
 
     func saveTraining(record: TrainingRecord, token: String?, completion: @escaping (Result<Void, Error>) -> Void) {
-        let urlString = hostName + "/api/training/savetraining"
+        let urlString = hostName + "/api/training/save"
         guard let url = URL(string: urlString) else {
             completion(.failure(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])))
             return

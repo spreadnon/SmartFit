@@ -26,9 +26,6 @@ struct TrainingRecordView: View {
                         calendarSection
                         
                         VStack(spacing: 24) {
-//                            detailsSection
-                            
-                            // Summary for selected date
                             todaySummarySection
                         }
                     }
@@ -48,9 +45,9 @@ struct TrainingRecordView: View {
     
     private func fetchRemoteRecordIfNeeded(for date: Date) {
         // Only fetch if local record is missing
-//        let localRecord = appData.records.first(where: { Calendar.current.isDate($0.date, inSameDayAs: date) })
-//        print(localRecord)
-//        if localRecord == nil {
+        let localRecord = appData.records.first(where: { Calendar.current.isDate($0.date, inSameDayAs: date) })
+        print(localRecord)
+        if localRecord == nil {
             isFetchingRemote = true
             NetworkManager.shared.getTraining(date: date, token: appData.currentUser?.token) { result in
                 isFetchingRemote = false
@@ -64,7 +61,7 @@ struct TrainingRecordView: View {
                     //在这里处理默认状态，停止loading并显示没有数据
                 }
             }
-//        }
+        }
     }
     
     @ViewBuilder
