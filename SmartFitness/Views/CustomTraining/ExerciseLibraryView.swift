@@ -5,15 +5,9 @@ struct ExerciseLibraryView: View {
     @StateObject private var store = ExerciseLibraryStore.shared
 @State private var searchText = ""
  @State private var selectedCategory = "ALL"
- @State private var selectedExercises: [LibraryExercise] = [] {
-     didSet {
-         // Selection changed - trigger UI update without full rebuild
-         selectionVersion += 1
-     }
- }
+ @State private var selectedExercises: [LibraryExercise] = []
  @State private var sidebarLastFocusedKey: String?
  @State private var isSidebarDragging = false
- @State private var selectionVersion: Int = 0
     @FocusState private var isSearchFocused: Bool
     
     let categories = ["ALL", "CHEST", "BACK", "SHOULDERS", "LEGS", "ARMS", "ABDOMINALS", "GLUTES", "GYM", "HOME", "OUTDOOR"]
@@ -330,6 +324,7 @@ Color.clear
                  isSelected: isExerciseSelected(exercise),
                  onTap: { toggleSelection(exercise) }
              )
+             .id("\(key)-\(exercise.id)")
          }
      }
  }
