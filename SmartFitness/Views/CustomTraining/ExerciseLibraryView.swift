@@ -308,12 +308,12 @@ struct ExerciseLibraryView: View {
 
             Color.clear
                 .frame(height: 1)
-                .id(sectionId(for: key))
 
             exerciseRowsView(for: key)
                 .padding(.leading, 24)
                 .padding(.trailing, 48)
         }
+        .id(sectionId(for: key))
     }
 
     @ViewBuilder
@@ -362,20 +362,12 @@ struct ExerciseLibraryView: View {
                 GeometryReader { geometry in
                     VStack(spacing: 2) {
                         ForEach(sortedGroupKeys, id: \.self) { key in
-                            Button {
-                                scrollToSidebarKey(key, proxy: proxy)
-                            } label: {
-                                Text(muscleGroupTitles[key] ?? key)
-                                    .font(StitchTypography.labelSmall)
-                                    .foregroundColor(StitchTheme.primaryContainer)
-                                    .frame(width: 24, height: 20)
-                                    .contentShape(Rectangle())
-                            }
+                            sidebarIndexItem(for: key, proxy: proxy)
                         }
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                     .contentShape(Rectangle())
-                    .gesture(
+                    .simultaneousGesture(
                         DragGesture(minimumDistance: 8)
                             .onChanged { value in
                                 isSidebarDragging = true
@@ -388,7 +380,7 @@ struct ExerciseLibraryView: View {
                     )
                 }
                 .padding(.vertical, 12)
-                .frame(width: 32)
+                .frame(width: 40)
                 .background(
                     Capsule()
                         .fill(StitchTheme.surfaceContainerLow.opacity(0.6))
@@ -402,6 +394,38 @@ struct ExerciseLibraryView: View {
             }
             .transition(.move(edge: .trailing).combined(with: .opacity))
         }
+    }
+
+    @ViewBuilder
+    private func sidebarIndexItem(for key: String, proxy: ScrollViewProxy) -> some View {
+        let selectedCount = selectedExerciseCount(for: key)
+
+        Text(muscleGroupTitles[key] ?? key)
+            .font(StitchTypography.labelSmall)
+            .foregroundColor(StitchTheme.primaryContainer)
+            .lineLimit(1)
+            .minimumScaleFactor(0.6)
+            .frame(width: 32, height: 22)
+            .contentShape(Rectangle())
+            .overlay(alignment: .topTrailing) {
+                if selectedCount > 0 {
+                    Text("\(selectedCount)")
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundColor(StitchTheme.onPrimaryFixed)
+                        .frame(minWidth: 12, minHeight: 12)
+                        .background(Circle().fill(StitchTheme.primaryContainer))
+                        .offset(x: 4, y: -4)
+                }
+            }
+            .onTapGesture {
+                DispatchQueue.main.async {
+                    scrollToSidebarKey(key, proxy: proxy)
+                }
+            }
+    }
+
+    private func selectedExerciseCount(for key: String) -> Int {
+        selectedExercises.filter { muscleGroupKey(for: $0) == key }.count
     }
 
     private func scrollToSidebarKey(_ key: String, proxy: ScrollViewProxy) {
