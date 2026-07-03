@@ -5,6 +5,56 @@ enum ActiveWorkoutSource {
     case manual
 }
 
+enum WorkoutSyncStatus {
+    case notSaved
+    case localSaved
+    case syncing
+    case synced
+    case failed
+
+    var title: String {
+        switch self {
+        case .notSaved: return "未生成训练记录"
+        case .localSaved: return "本地已保存"
+        case .syncing: return "云端同步中"
+        case .synced: return "云端已同步"
+        case .failed: return "云端同步失败"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .notSaved: return "minus.circle"
+        case .localSaved: return "checkmark.circle"
+        case .syncing: return "arrow.triangle.2.circlepath"
+        case .synced: return "checkmark.icloud"
+        case .failed: return "exclamationmark.icloud"
+        }
+    }
+}
+
+struct WorkoutSummary {
+    let duration: TimeInterval
+    let focusArea: String
+    let exercises: [Exercise]
+
+    var completedSets: Int {
+        exercises.flatMap { $0.exerciseSets }.filter { $0.isCompleted }.count
+    }
+
+    var totalSets: Int {
+        exercises.flatMap { $0.exerciseSets }.count
+    }
+
+    var completedExercises: Int {
+        exercises.filter { $0.isCompleted }.count
+    }
+
+    var totalVolume: Double {
+        exercises.reduce(0) { $0 + $1.totalVolume }
+    }
+}
+
 struct ActiveWorkoutView: View {
     @EnvironmentObject var appData: AppData
     @Environment(\.dismiss) private var dismiss
@@ -20,6 +70,10 @@ struct ActiveWorkoutView: View {
     @State private var showingEndConfirmation = false
     @State private var showingExitConfirmation = false
     @State private var showingWorkoutComplete = false
+    @State private var showingRestComplete = false
+    @State private var exercisePendingDeletion: Exercise?
+    @State private var completedSummary: WorkoutSummary?
+    @State private var syncStatus: WorkoutSyncStatus = .notSaved
     @State private var hasInteracted = false
     @State private var originalPlan: TrainingPlan?
 
@@ -60,31 +114,42 @@ struct ActiveWorkoutView: View {
         ZStack {
             StitchTheme.background.ignoresSafeArea()
 
-            VStack(spacing: 0) {
-                headerBar
+            if let completedSummary {
+                WorkoutSummaryView(summary: completedSummary, syncStatus: syncStatus) {
+                    dismiss()
+                }
+            } else {
+                VStack(spacing: 0) {
+                if showingRestComplete {
+                    restCompleteBanner
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                }
 
-                if let exercise = currentExercise {
-                    stickyStatusPanel
+                    headerBar
 
-                    ScrollView(showsIndicators: false) {
-                        VStack(spacing: 20) {
-                            currentExerciseSection(exercise)
-                                .gesture(
-                                    DragGesture(minimumDistance: 40)
-                                        .onEnded { value in
-                                            handleExerciseSwipe(value.translation.width)
-                                        }
-                                )
-                            setEditorSection(exercise)
+                    if let exercise = currentExercise {
+                        stickyStatusPanel
+
+                        ScrollView(showsIndicators: false) {
+                            VStack(spacing: 20) {
+                                currentExerciseSection(exercise)
+                                    .gesture(
+                                        DragGesture(minimumDistance: 40)
+                                            .onEnded { value in
+                                                handleExerciseSwipe(value.translation.width)
+                                            }
+                                    )
+                                setEditorSection(exercise)
+                            }
+                            .padding(.horizontal, 20)
+                            .padding(.top, 16)
+                            .padding(.bottom, 120)
                         }
-                        .padding(.horizontal, 20)
-                        .padding(.top, 16)
-                        .padding(.bottom, 120)
-                    }
 
-                    bottomControls
-                } else {
-                    emptyWorkoutState
+                        bottomControls
+                    } else {
+                        emptyWorkoutState
+                    }
                 }
             }
         }
@@ -133,6 +198,19 @@ struct ActiveWorkoutView: View {
         } message: {
             Text("所有动作都已完成。训练时长 \(formatDuration(sessionDuration))，共完成 \(completedSets) 组。")
         }
+        .alert("删除当前动作？", isPresented: deleteConfirmationBinding) {
+            Button("取消", role: .cancel) {
+                exercisePendingDeletion = nil
+            }
+            Button("删除", role: .destructive) {
+                if let exercise = exercisePendingDeletion {
+                    removeCurrentExercise(exercise)
+                }
+                exercisePendingDeletion = nil
+            }
+        } message: {
+            Text("这会从今日训练中移除当前动作。")
+        }
     }
 
     private var headerBar: some View {
@@ -177,6 +255,19 @@ struct ActiveWorkoutView: View {
         .padding(.top, 18)
         .padding(.bottom, 14)
         .background(StitchTheme.background.opacity(0.96))
+    }
+
+    private var restCompleteBanner: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "checkmark.circle.fill")
+            Text("休息结束，继续下一组")
+                .font(StitchTypography.label)
+            Spacer()
+        }
+        .foregroundColor(StitchTheme.onPrimaryFixed)
+        .padding(.horizontal, 20)
+        .padding(.vertical, 12)
+        .background(StitchTheme.primaryContainer)
     }
 
     private var stickyStatusPanel: some View {
@@ -371,10 +462,10 @@ struct ActiveWorkoutView: View {
                 title: "删除",
                 systemImage: "trash",
                 isPrimary: false,
-                isDisabled: false
+                isDisabled: currentExercise?.isCompleted ?? true
             ) {
                 if let exercise = currentExercise {
-                    removeCurrentExercise(exercise)
+                    exercisePendingDeletion = exercise
                 }
             }
 
@@ -531,6 +622,20 @@ struct ActiveWorkoutView: View {
         if restRemaining <= 0 {
             isResting = false
             restRemaining = 0
+            showRestCompletePrompt()
+        }
+    }
+
+    private func showRestCompletePrompt() {
+        UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
+        withAnimation(.spring(response: 0.28, dampingFraction: 0.9)) {
+            showingRestComplete = true
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            withAnimation(.easeOut(duration: 0.2)) {
+                showingRestComplete = false
+            }
         }
     }
 
@@ -572,6 +677,11 @@ struct ActiveWorkoutView: View {
     }
 
     private func requestDismiss() {
+        if completedSummary != nil {
+            dismiss()
+            return
+        }
+
         if hasInteracted {
             showingExitConfirmation = true
         } else {
@@ -587,29 +697,43 @@ struct ActiveWorkoutView: View {
         }
 
         let day = plan.days[resolvedDayIndex]
+        let focusArea = source == .manual ? "CUSTOM" : plan.trainingSplit
         if hasInteracted {
             appData.saveSessionRecord(
                 exercises: day.exercises,
-                focusArea: source == .manual ? "CUSTOM" : plan.trainingSplit,
+                focusArea: focusArea,
                 duration: sessionDuration
             )
+            syncStatus = .syncing
 
             let record = TrainingRecord(
                 date: Date(),
-                focusArea: source == .manual ? "CUSTOM" : plan.trainingSplit,
+                focusArea: focusArea,
                 exercises: day.exercises,
                 duration: sessionDuration,
                 isCompleted: day.exercises.allSatisfy { $0.isCompleted }
             )
 
             NetworkManager.shared.saveTraining(record: record, token: appData.currentUser?.token) { result in
-                if case .failure(let error) = result {
-                    print("❌ 训练记录同步失败: \(error.localizedDescription)")
+                DispatchQueue.main.async {
+                    switch result {
+                    case .success:
+                        syncStatus = .synced
+                    case .failure(let error):
+                        syncStatus = .failed
+                        print("❌ 训练记录同步失败: \(error.localizedDescription)")
+                    }
                 }
             }
+        } else {
+            syncStatus = .notSaved
         }
 
-        dismiss()
+        completedSummary = WorkoutSummary(
+            duration: sessionDuration,
+            focusArea: focusArea,
+            exercises: day.exercises
+        )
     }
 
     private func discardWorkoutChanges() {
@@ -633,7 +757,166 @@ struct ActiveWorkoutView: View {
         String(format: "%02d:%02d", seconds / 60, seconds % 60)
     }
 
+    private var deleteConfirmationBinding: Binding<Bool> {
+        Binding(
+            get: { exercisePendingDeletion != nil },
+            set: { isPresented in
+                if !isPresented {
+                    exercisePendingDeletion = nil
+                }
+            }
+        )
+    }
+
     private func setTabBarHidden(_ hidden: Bool) {
         UITabBar.appearance().isHidden = hidden
+    }
+}
+
+struct WorkoutSummaryView: View {
+    let summary: WorkoutSummary
+    let syncStatus: WorkoutSyncStatus
+    let onDone: () -> Void
+
+    var body: some View {
+        VStack(spacing: 0) {
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 24) {
+                    header
+                    syncStatusView
+                    statsGrid
+                    exerciseList
+                }
+                .padding(.horizontal, 24)
+                .padding(.top, 32)
+                .padding(.bottom, 120)
+            }
+
+            Button(action: onDone) {
+                Text("完成")
+                    .font(StitchTypography.label)
+                    .foregroundColor(StitchTheme.onPrimaryFixed)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(StitchTheme.primaryContainer)
+                    .cornerRadius(14)
+            }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 18)
+            .background(StitchTheme.background.opacity(0.98))
+        }
+    }
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("WORKOUT COMPLETE")
+                .font(StitchTypography.label)
+                .foregroundColor(StitchTheme.onSurfaceVariant)
+                .tracking(3)
+
+            Text("训练总结")
+                .font(StitchTypography.headlineLarge)
+                .italic()
+                .foregroundColor(StitchTheme.primaryContainer)
+
+            Text(summary.focusArea)
+                .font(StitchTypography.labelSmall)
+                .foregroundColor(StitchTheme.onSurfaceVariant)
+        }
+    }
+
+    private var statsGrid: some View {
+        VStack(spacing: 12) {
+            HStack(spacing: 12) {
+                summaryStat(title: "时长", value: formatDuration(summary.duration))
+                summaryStat(title: "完成组", value: "\(summary.completedSets)/\(summary.totalSets)")
+            }
+
+            HStack(spacing: 12) {
+                summaryStat(title: "完成动作", value: "\(summary.completedExercises)/\(summary.exercises.count)")
+                summaryStat(title: "总训练量", value: "\(Int(summary.totalVolume))kg")
+            }
+        }
+    }
+
+    private var syncStatusView: some View {
+        HStack(spacing: 12) {
+            Image(systemName: syncStatus.systemImage)
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundColor(StitchTheme.primaryContainer)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("SAVE STATUS")
+                    .font(StitchTypography.labelSmall)
+                    .foregroundColor(StitchTheme.onSurfaceVariant)
+                    .tracking(2)
+                Text(syncStatus.title)
+                    .font(StitchTypography.label)
+                    .foregroundColor(StitchTheme.onSurface)
+            }
+
+            Spacer()
+        }
+        .padding(16)
+        .background(StitchTheme.surfaceContainer)
+        .cornerRadius(14)
+    }
+
+    private var exerciseList: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("EXERCISES")
+                .font(StitchTypography.label)
+                .foregroundColor(StitchTheme.onSurfaceVariant)
+                .tracking(2)
+
+            ForEach(summary.exercises) { exercise in
+                HStack(spacing: 12) {
+                    Image(systemName: exercise.isCompleted ? "checkmark.circle.fill" : "circle")
+                        .foregroundColor(exercise.isCompleted ? StitchTheme.primaryContainer : StitchTheme.onSurfaceVariant)
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(exercise.exerciseName)
+                            .font(StitchTypography.bodyBold)
+                            .foregroundColor(StitchTheme.onSurface)
+                            .lineLimit(1)
+
+                        Text("\(exercise.exerciseSets.filter { $0.isCompleted }.count)/\(exercise.exerciseSets.count) 组 · \(Int(exercise.totalVolume))kg")
+                            .font(StitchTypography.labelSmall)
+                            .foregroundColor(StitchTheme.onSurfaceVariant)
+                    }
+
+                    Spacer()
+                }
+                .padding(12)
+                .background(StitchTheme.surfaceContainerLow)
+                .cornerRadius(12)
+            }
+        }
+    }
+
+    private func summaryStat(title: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(StitchTypography.labelSmall)
+                .foregroundColor(StitchTheme.onSurfaceVariant)
+            Text(value)
+                .font(StitchTypography.dataMedium)
+                .foregroundColor(StitchTheme.onSurface)
+                .monospacedDigit()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(StitchTheme.surfaceContainer)
+        .cornerRadius(14)
+    }
+
+    private func formatDuration(_ duration: TimeInterval) -> String {
+        let hours = Int(duration) / 3600
+        let minutes = Int(duration) / 60 % 60
+        let seconds = Int(duration) % 60
+        if hours > 0 {
+            return String(format: "%02d:%02d:%02d", hours, minutes, seconds)
+        }
+        return String(format: "%02d:%02d", minutes, seconds)
     }
 }
