@@ -5,6 +5,14 @@ private struct ExerciseLibraryRow: Identifiable {
     let exercises: [LibraryExercise]
 }
 
+private struct ExerciseSectionPositionKey: PreferenceKey {
+    static var defaultValue: [String: CGFloat] = [:]
+
+    static func reduce(value: inout [String: CGFloat], nextValue: () -> [String: CGFloat]) {
+        value.merge(nextValue(), uniquingKeysWith: { $1 })
+    }
+}
+
 struct ExerciseLibraryView: View {
     @EnvironmentObject var appData: AppData
     @StateObject private var store = ExerciseLibraryStore.shared
@@ -13,6 +21,7 @@ struct ExerciseLibraryView: View {
     @State private var selectedExercises: [LibraryExercise] = []
     @State private var sidebarLastFocusedKey: String?
     @State private var isSidebarDragging = false
+    @State private var activeSectionKey: String?
     @FocusState private var isSearchFocused: Bool
 
     let categories = ["ALL", "CHEST", "BACK", "SHOULDERS", "LEGS", "ARMS", "ABDOMINALS", "GLUTES", "GYM", "HOME", "OUTDOOR"]
@@ -147,6 +156,10 @@ struct ExerciseLibraryView: View {
                         .padding(.top, 24)
                         .padding(.bottom, 120) // Extra padding for the floating button
                     }
+                    .coordinateSpace(name: "exercise-library-scroll")
+                    .onPreferenceChange(ExerciseSectionPositionKey.self) { positions in
+                        updateActiveSection(from: positions)
+                    }
                     .scrollDismissesKeyboard(.immediately)
                     .overlay(indexSidebar(proxy: proxy), alignment: .trailing)
                 }
@@ -165,6 +178,12 @@ struct ExerciseLibraryView: View {
         }
         .navigationBarHidden(true)
         .preferredColorScheme(.dark)
+        .onChange(of: sortedGroupKeys) { keys in
+            if let activeSectionKey, keys.contains(activeSectionKey) {
+                return
+            }
+            activeSectionKey = keys.first
+        }
     }
 
     @ViewBuilder
@@ -305,6 +324,14 @@ struct ExerciseLibraryView: View {
                 .italic()
                 .foregroundColor(StitchTheme.onSurfaceVariant.opacity(0.5))
                 .padding(.horizontal, 24)
+                .background(
+                    GeometryReader { geometry in
+                        Color.clear.preference(
+                            key: ExerciseSectionPositionKey.self,
+                            value: [key: geometry.frame(in: .named("exercise-library-scroll")).minY]
+                        )
+                    }
+                )
 
             Color.clear
                 .frame(height: 1)
@@ -399,28 +426,31 @@ struct ExerciseLibraryView: View {
     @ViewBuilder
     private func sidebarIndexItem(for key: String, proxy: ScrollViewProxy) -> some View {
         let selectedCount = selectedExerciseCount(for: key)
+        let isActive = activeSectionKey == key
 
         Text(muscleGroupTitles[key] ?? key)
-            .font(StitchTypography.labelSmall)
-            .foregroundColor(StitchTheme.primaryContainer)
+            .font(isActive ? StitchTypography.label : StitchTypography.labelSmall)
+            .foregroundColor(isActive ? StitchTheme.onPrimaryFixed : StitchTheme.primaryContainer)
             .lineLimit(1)
             .minimumScaleFactor(0.6)
             .frame(width: 32, height: 22)
+            .background(
+                Capsule()
+                    .fill(isActive ? StitchTheme.primaryContainer : Color.clear)
+            )
             .contentShape(Rectangle())
             .overlay(alignment: .topTrailing) {
                 if selectedCount > 0 {
-                    Text("\(selectedCount)")
+                    Text(selectedCount > 9 ? "9+" : "\(selectedCount)")
                         .font(.system(size: 8, weight: .bold))
-                        .foregroundColor(StitchTheme.onPrimaryFixed)
+                        .foregroundColor(isActive ? StitchTheme.primaryContainer : StitchTheme.onPrimaryFixed)
                         .frame(minWidth: 12, minHeight: 12)
-                        .background(Circle().fill(StitchTheme.primaryContainer))
+                        .background(Circle().fill(isActive ? StitchTheme.onPrimaryFixed : StitchTheme.primaryContainer))
                         .offset(x: 4, y: -4)
                 }
             }
             .onTapGesture {
-                DispatchQueue.main.async {
-                    scrollToSidebarKey(key, proxy: proxy)
-                }
+                scrollToSidebarKeyByTap(key, proxy: proxy)
             }
     }
 
@@ -428,13 +458,10 @@ struct ExerciseLibraryView: View {
         selectedExercises.filter { muscleGroupKey(for: $0) == key }.count
     }
 
-    private func scrollToSidebarKey(_ key: String, proxy: ScrollViewProxy) {
-        if isSidebarDragging {
+    private func scrollToSidebarKeyByTap(_ key: String, proxy: ScrollViewProxy) {
+        activeSectionKey = key
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.82)) {
             proxy.scrollTo(sectionId(for: key), anchor: .top)
-        } else {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                proxy.scrollTo(sectionId(for: key), anchor: .top)
-            }
         }
         if sidebarLastFocusedKey != key {
             UIImpactFeedbackGenerator(style: .soft).impactOccurred()
@@ -449,10 +476,22 @@ struct ExerciseLibraryView: View {
         let index = min(Int(ratio * CGFloat(sortedGroupKeys.count)), sortedGroupKeys.count - 1)
         let key = sortedGroupKeys[index]
         if sidebarLastFocusedKey != key {
+            activeSectionKey = key
             proxy.scrollTo(sectionId(for: key), anchor: .top)
             UIImpactFeedbackGenerator(style: .soft).impactOccurred()
             sidebarLastFocusedKey = key
         }
+    }
+
+    private func updateActiveSection(from positions: [String: CGFloat]) {
+        guard !isSidebarDragging, !positions.isEmpty else { return }
+
+        let threshold: CGFloat = 12
+        guard let key = positions.min(by: {
+            abs($0.value - threshold) < abs($1.value - threshold)
+        })?.key, activeSectionKey != key else { return }
+
+        activeSectionKey = key
     }
 
     private func sectionId(for key: String) -> String {

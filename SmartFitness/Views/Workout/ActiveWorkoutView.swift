@@ -71,6 +71,7 @@ struct ActiveWorkoutView: View {
     @State private var showingExitConfirmation = false
     @State private var showingWorkoutComplete = false
     @State private var showingRestComplete = false
+    @State private var showingExerciseCompletePrompt = false
     @State private var exercisePendingDeletion: Exercise?
     @State private var completedSummary: WorkoutSummary?
     @State private var syncStatus: WorkoutSyncStatus = .notSaved
@@ -157,6 +158,7 @@ struct ActiveWorkoutView: View {
                 }
 
                 restOverlayPanel
+                exerciseCompleteOverlay
             }
         }
         .navigationBarHidden(true)
@@ -306,6 +308,46 @@ struct ActiveWorkoutView: View {
         .allowsHitTesting(isResting || showingRestComplete)
     }
 
+    @ViewBuilder
+    private var exerciseCompleteOverlay: some View {
+        if showingExerciseCompletePrompt {
+            VStack {
+                Spacer()
+
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(StitchTheme.primaryContainer)
+                        Text("当前动作已完成")
+                            .font(StitchTypography.label)
+                            .foregroundColor(StitchTheme.onSurface)
+                        Spacer()
+                    }
+
+                    Button {
+                        showingExerciseCompletePrompt = false
+                        moveToNextIncompleteExercise()
+                    } label: {
+                        Text("进入下一个动作")
+                            .font(StitchTypography.label)
+                            .foregroundColor(StitchTheme.onPrimaryFixed)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 13)
+                            .background(StitchTheme.primaryContainer)
+                            .cornerRadius(10)
+                    }
+                }
+                .padding(16)
+                .background(StitchTheme.surfaceContainer)
+                .cornerRadius(16)
+                .shadow(color: Color.black.opacity(0.35), radius: 20, y: 8)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 92)
+            }
+            .transition(.move(edge: .bottom).combined(with: .opacity))
+        }
+    }
+
     private var progressSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
@@ -399,8 +441,14 @@ struct ActiveWorkoutView: View {
 
     private func setEditorSection(_ exercise: Exercise) -> some View {
         VStack(spacing: 12) {
+            let nextSetIndex = exercise.exerciseSets.firstIndex(where: { !$0.isCompleted })
             ForEach(Array(exercise.exerciseSets.enumerated()), id: \.element.id) { index, set in
-                setRow(set: set, index: index, restTime: exercise.restTime)
+                setRow(
+                    set: set,
+                    index: index,
+                    restTime: exercise.restTime,
+                    isNextSet: nextSetIndex == index
+                )
             }
         }
         .padding(16)
@@ -408,7 +456,7 @@ struct ActiveWorkoutView: View {
         .cornerRadius(16)
     }
 
-    private func setRow(set: ExerciseSet, index: Int, restTime: Int) -> some View {
+    private func setRow(set: ExerciseSet, index: Int, restTime: Int, isNextSet: Bool) -> some View {
         HStack(spacing: 12) {
             Button {
                 toggleSetCompletion(at: index, restTime: restTime)
@@ -421,7 +469,7 @@ struct ActiveWorkoutView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("SET \(index + 1)")
                     .font(StitchTypography.labelSmall)
-                    .foregroundColor(StitchTheme.onSurfaceVariant)
+                    .foregroundColor(isNextSet ? StitchTheme.primaryContainer : StitchTheme.onSurfaceVariant)
 
                 HStack(spacing: 12) {
                     valueStepper(
@@ -441,7 +489,11 @@ struct ActiveWorkoutView: View {
             Spacer()
         }
         .padding(12)
-        .background(set.isCompleted ? StitchTheme.primaryContainer.opacity(0.08) : StitchTheme.surfaceContainerLow)
+        .background(setRowBackground(isCompleted: set.isCompleted, isNextSet: isNextSet))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(isNextSet ? StitchTheme.primaryContainer.opacity(0.75) : Color.clear, lineWidth: 1.5)
+        )
         .cornerRadius(12)
     }
 
@@ -468,6 +520,16 @@ struct ActiveWorkoutView: View {
         .padding(.vertical, 6)
         .background(StitchTheme.surfaceContainerHigh)
         .cornerRadius(8)
+    }
+
+    private func setRowBackground(isCompleted: Bool, isNextSet: Bool) -> Color {
+        if isCompleted {
+            return StitchTheme.primaryContainer.opacity(0.08)
+        }
+        if isNextSet {
+            return StitchTheme.primaryContainer.opacity(0.12)
+        }
+        return StitchTheme.surfaceContainerLow
     }
 
     private var bottomControls: some View {
@@ -602,10 +664,12 @@ struct ActiveWorkoutView: View {
 
     private func toggleSetCompletion(at setIndex: Int, restTime: Int) {
         var completedNow = false
+        var currentExerciseCompletedNow = false
         updateCurrentSet(at: setIndex) { set in
             set.isCompleted.toggle()
             completedNow = set.isCompleted
         }
+        currentExerciseCompletedNow = currentExercise?.isCompleted ?? false
 
         if completedNow {
             if isWorkoutComplete {
@@ -613,6 +677,10 @@ struct ActiveWorkoutView: View {
                 restRemaining = 0
                 UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
                 showingWorkoutComplete = true
+            } else if currentExerciseCompletedNow {
+                isResting = false
+                restRemaining = 0
+                showExerciseCompletePrompt()
             } else {
                 startRestTimer(seconds: restTime)
             }
@@ -662,6 +730,13 @@ struct ActiveWorkoutView: View {
         }
     }
 
+    private func showExerciseCompletePrompt() {
+        UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
+        withAnimation(.spring(response: 0.28, dampingFraction: 0.9)) {
+            showingExerciseCompletePrompt = true
+        }
+    }
+
     private func moveExercise(by offset: Int) {
         let nextIndex = currentExerciseIndex + offset
         guard exercises.indices.contains(nextIndex) else { return }
@@ -669,6 +744,27 @@ struct ActiveWorkoutView: View {
             currentExerciseIndex = nextIndex
             isResting = false
             restRemaining = 0
+            showingExerciseCompletePrompt = false
+        }
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    }
+
+    private func moveToNextIncompleteExercise() {
+        guard !exercises.isEmpty else { return }
+        if let nextIndex = exercises.indices.first(where: { $0 > currentExerciseIndex && !exercises[$0].isCompleted }) {
+            moveExercise(to: nextIndex)
+        } else if let firstIncompleteIndex = exercises.firstIndex(where: { !$0.isCompleted }) {
+            moveExercise(to: firstIncompleteIndex)
+        }
+    }
+
+    private func moveExercise(to index: Int) {
+        guard exercises.indices.contains(index) else { return }
+        withAnimation(.spring(response: 0.32, dampingFraction: 0.85)) {
+            currentExerciseIndex = index
+            isResting = false
+            restRemaining = 0
+            showingExerciseCompletePrompt = false
         }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }

@@ -4,6 +4,9 @@ struct ExerciseImageView: View {
     let imagePath: String
     
     @State private var uiImage: UIImage? = nil
+    @State private var didRequestImage = false
+
+    private static let imageCache = NSCache<NSString, UIImage>()
     
     init(imagePath: String) {
         self.imagePath = imagePath
@@ -35,23 +38,44 @@ struct ExerciseImageView: View {
     }
     
     private func loadImage() {
-        if imagePath.isEmpty { return }
-        
-        // Normalize imagePath: replace "/" with "_" and remove ".jpg" extension
+        guard !imagePath.isEmpty, !didRequestImage else { return }
+
         let effectiveImagePath = imagePath
             .replacingOccurrences(of: "/", with: "_")
             .replacingOccurrences(of: ".jpg", with: "")
-        
+        let cacheKey = NSString(string: effectiveImagePath)
+
+        if let cachedImage = Self.imageCache.object(forKey: cacheKey) {
+            uiImage = cachedImage
+            return
+        }
+
+        didRequestImage = true
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            let image = Self.resolveImage(named: effectiveImagePath)
+
+            if let image {
+                Self.imageCache.setObject(image, forKey: cacheKey)
+            }
+
+            DispatchQueue.main.async {
+                uiImage = image
+            }
+        }
+    }
+
+    private static func resolveImage(named effectiveImagePath: String) -> UIImage? {
         // 1. Try UIImage(named:) first - most robust for Assets and regular Groups
         if let img = UIImage(named: effectiveImagePath) {
-            self.uiImage = img
-            return
+            return img
         }
         
         // 2. Try direct asset/resource lookup in bundle root (flattened)
         if let path = Bundle.main.path(forResource: effectiveImagePath, ofType: "jpg") {
-            self.uiImage = UIImage(contentsOfFile: path)
-            if self.uiImage != nil { return }
+            if let img = UIImage(contentsOfFile: path) {
+                return img
+            }
         }
         
         // 3. Resolve folder structure using underscores (e.g., "Folder_Name_0" -> folder "Folder_Name")
@@ -67,14 +91,17 @@ struct ExerciseImageView: View {
         if !folder.isEmpty {
             // Try: exercises/folder/effectiveImagePath.jpg
             if let path = Bundle.main.path(forResource: effectiveImagePath, ofType: "jpg", inDirectory: "exercises/\(folder)") {
-                self.uiImage = UIImage(contentsOfFile: path)
-                if self.uiImage != nil { return }
+                if let img = UIImage(contentsOfFile: path) {
+                    return img
+                }
             }
         }
         
         // 5. Final broad fallbacks for named images with prefixes
         if let img = UIImage(named: "exercises/\(effectiveImagePath)") {
-            self.uiImage = img
+            return img
         }
+
+        return nil
     }
 }
