@@ -40,6 +40,7 @@ class AppData: ObservableObject {
     }
     @Published var selectedTab: Int = 0
     @Published var replacementTargetId: UUID? = nil
+    @Published var libraryInsertionTarget: LibraryInsertionTarget? = nil
     
     private let planKey = "saved_training_plan"
     private let manualPlanKey = "saved_manual_plan"
@@ -83,15 +84,38 @@ class AppData: ObservableObject {
     func addToToday(exercises: [Exercise]) {
         guard !exercises.isEmpty else { return }
 
+        if let target = libraryInsertionTarget {
+            libraryInsertionTarget = nil
+            if addExercises(exercises, to: target) {
+                return
+            }
+        }
+
         if var plan = aiSmartPlan, !plan.days.isEmpty {
             let dayIndex = plan.days.firstIndex(where: { !$0.isCompleted }) ?? 0
             plan.days[dayIndex].exercises.append(contentsOf: exercises)
+            plan.days[dayIndex].kind = .training
             self.aiSmartPlan = plan
+            return
+        }
+
+        if var plan = manualPlan,
+           !isManualSession(plan),
+           !plan.days.isEmpty {
+            let currentWeekday = Calendar.current.component(.weekday, from: Date())
+            let dayIndex = plan.days.firstIndex(where: { $0.weekday == currentWeekday }) ??
+                plan.days.firstIndex(where: { $0.kind == .training }) ??
+                0
+            plan.days[dayIndex].exercises.append(contentsOf: exercises)
+            plan.days[dayIndex].kind = .training
+            plan.days[dayIndex].focus = plan.days[dayIndex].focus ?? "自定义"
+            self.manualPlan = plan
             return
         }
 
         if var plan = manualPlan, !plan.days.isEmpty, Calendar.current.isDate(plan.createdAt, inSameDayAs: Date()) {
             plan.days[0].exercises.append(contentsOf: exercises)
+            plan.days[0].kind = .training
             self.manualPlan = plan
             return
         }
@@ -104,12 +128,44 @@ class AppData: ObservableObject {
         self.aiSmartPlan = nil
     }
 
+    @discardableResult
+    private func addExercises(_ exercises: [Exercise], to target: LibraryInsertionTarget) -> Bool {
+        switch target.planType {
+        case .ai:
+            guard var plan = aiSmartPlan, plan.days.indices.contains(target.dayIndex) else { return false }
+            plan.days[target.dayIndex].exercises.append(contentsOf: exercises)
+            plan.days[target.dayIndex].kind = .training
+            plan.days[target.dayIndex].focus = plan.days[target.dayIndex].focus ?? "自定义"
+            self.aiSmartPlan = plan
+            return true
+        case .manual:
+            guard var plan = manualPlan, plan.days.indices.contains(target.dayIndex) else { return false }
+            plan.days[target.dayIndex].exercises.append(contentsOf: exercises)
+            plan.days[target.dayIndex].kind = .training
+            plan.days[target.dayIndex].focus = plan.days[target.dayIndex].focus ?? "自定义"
+            self.manualPlan = plan
+            return true
+        }
+    }
+
     var manualPlanForToday: TrainingPlan? {
         guard let manualPlan,
               Calendar.current.isDate(manualPlan.createdAt, inSameDayAs: Date()) else {
             return nil
         }
         return manualPlan
+    }
+
+    var manualWeeklyPlan: TrainingPlan? {
+        guard let manualPlan,
+              !isManualSession(manualPlan) else {
+            return nil
+        }
+        return manualPlan
+    }
+
+    private func isManualSession(_ plan: TrainingPlan) -> Bool {
+        plan.trainingSplit == "自选训练" || plan.trainingSplit == "MANUAL"
     }
     
     func convertLibraryExercises(_ libraryExercises: [LibraryExercise]) -> [Exercise] {
@@ -177,8 +233,18 @@ class AppData: ObservableObject {
         }
 
         if var plan = manualPlan, !plan.days.isEmpty {
-            plan.days[0].exercises.removeAll { $0.id == exerciseId }
-            self.manualPlan = plan
+            if isManualSession(plan) {
+                plan.days[0].exercises.removeAll { $0.id == exerciseId }
+                self.manualPlan = plan
+                return
+            }
+
+            if let dayIndex = plan.days.firstIndex(where: { day in
+                day.exercises.contains(where: { $0.id == exerciseId })
+            }) {
+                plan.days[dayIndex].exercises.removeAll { $0.id == exerciseId }
+                self.manualPlan = plan
+            }
         }
     }
 
@@ -270,13 +336,15 @@ class AppData: ObservableObject {
     
     private func loadPlan() {
         if let data = UserDefaults.standard.data(forKey: planKey) {
-            if let decoded = try? JSONDecoder().decode(TrainingPlan.self, from: data) {
+            if var decoded = try? JSONDecoder().decode(TrainingPlan.self, from: data) {
+                decoded.applyDefaultWeeklyMetadata()
                 self.aiSmartPlan = decoded
             }
         }
         
         if let data = UserDefaults.standard.data(forKey: manualPlanKey) {
-            if let decoded = try? JSONDecoder().decode(TrainingPlan.self, from: data) {
+            if var decoded = try? JSONDecoder().decode(TrainingPlan.self, from: data) {
+                decoded.applyDefaultWeeklyMetadata()
                 self.manualPlan = decoded
             }
         }
@@ -295,7 +363,7 @@ struct PlanResponse: Codable {
     let data: PlanData
 
     func toTrainingPlan() -> TrainingPlan {
-        let days = data.dailyPlans.map { dailyPlan -> TrainingDay in
+        let days = data.dailyPlans.enumerated().map { index, dailyPlan -> TrainingDay in
             let exercises = dailyPlan.exerciseList.map { exercise -> Exercise in
                 // 处理图片字符串拆分
                 let splitImages = (exercise.images ?? []).flatMap { $0.components(separatedBy: ",") }
@@ -313,10 +381,30 @@ struct PlanResponse: Codable {
                     restTime: 90
                 )
             }
-            return TrainingDay(label: dailyPlan.trainingDay, exercises: exercises)
+            let kind: TrainingDayKind = exercises.isEmpty ? .rest : .training
+            return TrainingDay(
+                label: dailyPlan.trainingDay,
+                exercises: exercises,
+                kind: kind,
+                weekday: defaultWeekday(for: index),
+                focus: kind == .training ? inferredFocus(label: dailyPlan.trainingDay, exercises: exercises) : nil
+            )
         }
         
         return TrainingPlan(trainingSplit: data.training_split, instructions: NSLocalizedString("根据您的需求智能生成的个性化计划", comment: ""), days: days)
+    }
+
+    private func defaultWeekday(for index: Int) -> Int {
+        let mondayFirstWeek = [2, 3, 4, 5, 6, 7, 1]
+        return mondayFirstWeek[index % mondayFirstWeek.count]
+    }
+
+    private func inferredFocus(label: String, exercises: [Exercise]) -> String {
+        let labelFocus = TrainingPlan.inferredFocus(from: [label])
+        if let labelFocus { return labelFocus }
+
+        let muscles = exercises.flatMap { $0.localizedMuscleNames.isEmpty ? $0.primaryMuscles : $0.localizedMuscleNames }
+        return TrainingPlan.inferredFocus(from: muscles) ?? NSLocalizedString("全身", comment: "")
     }
 }
 
@@ -550,19 +638,64 @@ struct Exercise: Identifiable, Codable, Equatable {
     }
 }
 
+enum TrainingPlanType {
+    case ai
+    case manual
+}
+
+struct LibraryInsertionTarget {
+    let planType: TrainingPlanType
+    let dayIndex: Int
+}
+
+enum TrainingDayKind: String, Codable {
+    case training
+    case rest
+    case recovery
+
+    var localizedTitle: String {
+        switch self {
+        case .training: return "训练"
+        case .rest: return "休息"
+        case .recovery: return "恢复"
+        }
+    }
+}
+
 struct TrainingDay: Identifiable, Codable {
     let id: UUID
     let label: String // A, B, C...
     var exercises: [Exercise]
-    
-    init(id: UUID = UUID(), label: String, exercises: [Exercise]) {
+    var kind: TrainingDayKind
+    var weekday: Int?
+    var focus: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id, label, exercises, kind, weekday, focus
+    }
+
+    init(id: UUID = UUID(), label: String, exercises: [Exercise], kind: TrainingDayKind = .training, weekday: Int? = nil, focus: String? = nil) {
         self.id = id
         self.label = label
         self.exercises = exercises
+        self.kind = kind
+        self.weekday = weekday
+        self.focus = focus
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decode(UUID.self, forKey: .id)
+        self.label = try container.decode(String.self, forKey: .label)
+        self.exercises = try container.decode([Exercise].self, forKey: .exercises)
+        self.kind = try container.decodeIfPresent(TrainingDayKind.self, forKey: .kind) ?? .training
+        self.weekday = try container.decodeIfPresent(Int.self, forKey: .weekday)
+        self.focus = try container.decodeIfPresent(String.self, forKey: .focus)
     }
     
     var isCompleted: Bool {
-        !exercises.isEmpty && exercises.allSatisfy { $0.isCompleted }
+        if kind != .training { return false }
+        return !exercises.isEmpty && exercises.allSatisfy { $0.isCompleted }
     }
 }
 
@@ -579,6 +712,38 @@ struct TrainingPlan: Identifiable, Codable {
         self.instructions = instructions
         self.days = days
         self.createdAt = Date()
+    }
+}
+
+extension TrainingPlan {
+    mutating func applyDefaultWeeklyMetadata() {
+        guard !days.isEmpty else { return }
+
+        let mondayFirstWeek = [2, 3, 4, 5, 6, 7, 1]
+        for index in days.indices {
+            if days[index].weekday == nil {
+                days[index].weekday = mondayFirstWeek[index % mondayFirstWeek.count]
+            }
+
+            if days[index].kind == .training, days[index].focus == nil {
+                let text = [days[index].label] + days[index].exercises.flatMap {
+                    $0.localizedMuscleNames.isEmpty ? $0.primaryMuscles : $0.localizedMuscleNames
+                }
+                days[index].focus = Self.inferredFocus(from: text)
+            }
+        }
+    }
+
+    static func inferredFocus(from values: [String]) -> String? {
+        let text = values.joined(separator: " ").lowercased()
+        if text.contains("胸") || text.contains("chest") { return "胸" }
+        if text.contains("背") || text.contains("back") || text.contains("lats") { return "背" }
+        if text.contains("肩") || text.contains("shoulder") { return "肩" }
+        if text.contains("腿") || text.contains("leg") || text.contains("quad") || text.contains("hamstring") || text.contains("calf") { return "腿" }
+        if text.contains("手臂") || text.contains("臂") || text.contains("arm") || text.contains("bicep") || text.contains("tricep") { return "手臂" }
+        if text.contains("腹") || text.contains("core") || text.contains("ab") { return "腹部" }
+        if text.contains("臀") || text.contains("glute") { return "臀部" }
+        return nil
     }
 }
 

@@ -194,6 +194,18 @@ struct ExerciseLibraryView: View {
                     .font(StitchTypography.headlineLarge)
                     .italic()
                     .foregroundColor(StitchTheme.primaryContainer)
+
+                if appData.replacementTargetId == nil, let targetTitle = libraryInsertionTargetTitle {
+                    HStack(spacing: 8) {
+                        Image(systemName: "calendar.badge.plus")
+                        Text("添加到 \(targetTitle)")
+                        Button("取消") {
+                            appData.libraryInsertionTarget = nil
+                        }
+                    }
+                    .font(StitchTypography.labelSmall)
+                    .foregroundColor(StitchTheme.onSurfaceVariant)
+                }
             }
             Spacer()
 
@@ -529,7 +541,7 @@ struct ExerciseLibraryView: View {
                     if appData.replacementTargetId != nil {
                         Text("CONFIRM REPLACEMENT")
                     } else {
-                        Text(LocalizedStringKey("CONFIRM SELECTION (\(selectedExercises.count))"))
+                        Text(confirmButtonTitle)
                     }
                     Image(systemName: "checkmark.circle.fill")
                 }
@@ -551,6 +563,51 @@ struct ExerciseLibraryView: View {
         } else {
             selectedExercises.append(exercise)
         }
+    }
+
+    private var libraryInsertionTargetTitle: String? {
+        guard let target = appData.libraryInsertionTarget,
+              let day = libraryInsertionTargetDay(for: target) else {
+            return nil
+        }
+
+        let weekday = weekdayTitle(for: day)
+        switch day.kind {
+        case .training:
+            return "\(weekday) · \(day.focus ?? day.label)"
+        case .recovery:
+            return "\(weekday) · 恢复"
+        case .rest:
+            return "\(weekday) · 休息"
+        }
+    }
+
+    private var confirmButtonTitle: String {
+        if let targetTitle = libraryInsertionTargetTitle {
+            return "添加到 \(targetTitle) (\(selectedExercises.count))"
+        }
+        return "CONFIRM SELECTION (\(selectedExercises.count))"
+    }
+
+    private func libraryInsertionTargetDay(for target: LibraryInsertionTarget) -> TrainingDay? {
+        let plan: TrainingPlan?
+        switch target.planType {
+        case .ai:
+            plan = appData.aiSmartPlan
+        case .manual:
+            plan = appData.manualPlan
+        }
+
+        guard let plan, plan.days.indices.contains(target.dayIndex) else {
+            return nil
+        }
+        return plan.days[target.dayIndex]
+    }
+
+    private func weekdayTitle(for day: TrainingDay) -> String {
+        guard let weekday = day.weekday else { return "训练日" }
+        let names = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"]
+        return names[max(0, min(weekday - 1, names.count - 1))]
     }
 }
 

@@ -620,6 +620,7 @@ struct ActiveWorkoutView: View {
                 .font(StitchTypography.dataMedium)
                 .foregroundColor(StitchTheme.onSurface)
             Button("去动作库添加") {
+                appData.libraryInsertionTarget = LibraryInsertionTarget(planType: source == .manual ? .manual : .ai, dayIndex: resolvedDayIndex)
                 appData.selectedTab = 2
             }
             .font(StitchTypography.label)
@@ -829,7 +830,7 @@ struct ActiveWorkoutView: View {
         }
 
         let day = plan.days[resolvedDayIndex]
-        let focusArea = source == .manual ? "CUSTOM" : plan.trainingSplit
+        let focusArea = workoutFocusArea(for: day, in: plan)
         if hasInteracted {
             appData.saveSessionRecord(
                 exercises: day.exercises,
@@ -857,6 +858,24 @@ struct ActiveWorkoutView: View {
             focusArea: focusArea,
             exercises: day.exercises
         )
+    }
+
+    private func workoutFocusArea(for day: TrainingDay, in plan: TrainingPlan) -> String {
+        if let focus = day.focus, !focus.isEmpty {
+            return focus
+        }
+
+        let muscles = day.exercises
+            .flatMap { $0.localizedMuscleNames.isEmpty ? $0.primaryMuscles : $0.localizedMuscleNames }
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+
+        let uniqueMuscles = Array(NSOrderedSet(array: muscles)) as? [String] ?? []
+        if !uniqueMuscles.isEmpty {
+            return uniqueMuscles.prefix(2).joined(separator: " / ")
+        }
+
+        return source == .manual ? "CUSTOM" : plan.trainingSplit
     }
 
     private func discardWorkoutChanges() {

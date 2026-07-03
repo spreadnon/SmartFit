@@ -24,6 +24,7 @@ struct TrainingRecordView: View {
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 32) {
                         calendarSection
+                        weeklySummarySection
                         
                         VStack(spacing: 24) {
                             todaySummarySection
@@ -52,7 +53,6 @@ struct TrainingRecordView: View {
     private func fetchRemoteRecordIfNeeded(for date: Date) {
         // Only fetch if local record is missing
         let localRecord = appData.records.first(where: { Calendar.current.isDate($0.date, inSameDayAs: date) })
-        print(localRecord)
         if localRecord == nil {
             isFetchingRemote = true
             NetworkManager.shared.getTraining(date: date, token: appData.currentUser?.token) { result in
@@ -238,6 +238,249 @@ struct TrainingRecordView: View {
             return String(area.prefix(1)).uppercased()
         }
         return "练"
+    }
+
+    private var weeklySummarySection: some View {
+        let records = recordsInSelectedWeek()
+        let totalVolume = records.reduce(0.0) { total, record in
+            total + record.exercises.reduce(0) { $0 + $1.totalVolume }
+        }
+        let totalDuration = records.reduce(0.0) { $0 + $1.duration }
+        let plannedTrainingDates = plannedTrainingDaysInSelectedWeek()
+        let completedPlannedCount = completedPlannedTrainingCount(records: records, plannedDates: plannedTrainingDates)
+        let missedCount = missedPlannedTrainingCount(records: records)
+        let extraCount = extraTrainingCount(records: records)
+        let focusText = weeklyFocusText(from: records)
+
+        return VStack(alignment: .leading, spacing: 18) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("THIS WEEK")
+                        .font(StitchTypography.label)
+                        .tracking(2)
+                        .foregroundColor(StitchTheme.onSurfaceVariant)
+
+                    Text("\(weekRangeText()) · 达成 \(completedPlannedCount)/\(plannedTrainingDates.count)")
+                        .font(StitchTypography.labelSmall)
+                        .foregroundColor(StitchTheme.onSurfaceVariant)
+                }
+
+                Spacer()
+
+                Text(focusText)
+                    .font(StitchTypography.labelSmall)
+                    .foregroundColor(StitchTheme.primaryContainer)
+                    .lineLimit(1)
+            }
+
+            HStack(spacing: 10) {
+                weeklyStatBlock(title: "计划", value: "\(plannedTrainingDates.count) 天")
+                weeklyStatBlock(title: "完成", value: "\(completedPlannedCount)")
+                weeklyStatBlock(title: "未练", value: "\(missedCount)")
+                weeklyStatBlock(title: "加练", value: "\(extraCount)")
+            }
+
+            HStack(spacing: 10) {
+                weeklyStatBlock(title: "总量", value: String(format: "%.1ft", totalVolume / 1000.0))
+                weeklyStatBlock(title: "时长", value: formatWeeklyDuration(totalDuration))
+                weeklyStatBlock(title: "记录", value: "\(records.count)")
+            }
+
+            weeklyPlanComparison(records: records)
+        }
+        .padding(20)
+        .background(StitchTheme.surfaceContainer)
+        .cornerRadius(12)
+        .padding(.horizontal, 24)
+    }
+
+    private func weeklyStatBlock(title: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(StitchTypography.labelSmall)
+                .foregroundColor(StitchTheme.onSurfaceVariant)
+            Text(value)
+                .font(StitchTypography.label)
+                .foregroundColor(StitchTheme.onSurface)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(StitchTheme.surfaceContainerLow)
+        .cornerRadius(10)
+    }
+
+    private func weeklyPlanComparison(records: [TrainingRecord]) -> some View {
+        HStack(spacing: 8) {
+            ForEach(weekDates(), id: \.self) { date in
+                let record = records.first { Calendar.current.isDate($0.date, inSameDayAs: date) }
+                let planDay = plannedDay(for: date)
+                weeklyPlanDayCell(date: date, record: record, planDay: planDay)
+            }
+        }
+    }
+
+    private func weeklyPlanDayCell(date: Date, record: TrainingRecord?, planDay: TrainingDay?) -> some View {
+        let hasRecord = record != nil
+        let isToday = Calendar.current.isDateInToday(date)
+        let isMissedTraining = isMissedPlannedTraining(date: date, planDay: planDay, hasRecord: hasRecord)
+
+        return VStack(spacing: 6) {
+            Text(shortWeekdayText(for: date))
+                .font(StitchTypography.labelSmall)
+                .foregroundColor(isToday || isMissedTraining ? StitchTheme.primaryContainer : StitchTheme.onSurfaceVariant)
+
+            Image(systemName: weeklyPlanIcon(date: date, record: record, planDay: planDay))
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(hasRecord || isMissedTraining ? StitchTheme.primaryContainer : StitchTheme.onSurfaceVariant)
+
+            Text(weeklyPlanLabel(date: date, record: record, planDay: planDay))
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundColor(hasRecord || isMissedTraining ? StitchTheme.primaryContainer : StitchTheme.onSurfaceVariant)
+                .lineLimit(1)
+                .minimumScaleFactor(0.65)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 10)
+        .background((hasRecord || isMissedTraining) ? StitchTheme.primaryContainer.opacity(0.12) : StitchTheme.surfaceContainerLow)
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke((isToday || isMissedTraining) ? StitchTheme.primaryContainer.opacity(0.7) : Color.clear, lineWidth: 1)
+        )
+        .cornerRadius(10)
+    }
+
+    private func recordsInSelectedWeek() -> [TrainingRecord] {
+        guard let weekInterval = Calendar.current.dateInterval(of: .weekOfYear, for: selectedDate) else {
+            return []
+        }
+
+        return appData.records
+            .filter { weekInterval.contains($0.date) }
+            .sorted { $0.date < $1.date }
+    }
+
+    private func weekDates() -> [Date] {
+        guard let weekInterval = Calendar.current.dateInterval(of: .weekOfYear, for: selectedDate) else {
+            return []
+        }
+
+        return (0..<7).compactMap { offset in
+            Calendar.current.date(byAdding: .day, value: offset, to: weekInterval.start)
+        }
+    }
+
+    private func plannedDay(for date: Date) -> TrainingDay? {
+        let weekday = Calendar.current.component(.weekday, from: date)
+        let plan = appData.aiSmartPlan ?? appData.manualWeeklyPlan
+        return plan?.days.first(where: { $0.weekday == weekday })
+    }
+
+    private func plannedTrainingDaysInSelectedWeek() -> [Date] {
+        weekDates().filter { date in
+            plannedDay(for: date)?.kind == .training
+        }
+    }
+
+    private func completedPlannedTrainingCount(records: [TrainingRecord], plannedDates: [Date]) -> Int {
+        plannedDates.filter { plannedDate in
+            records.contains { record in
+                Calendar.current.isDate(record.date, inSameDayAs: plannedDate) && record.isCompleted
+            }
+        }.count
+    }
+
+    private func missedPlannedTrainingCount(records: [TrainingRecord]) -> Int {
+        weekDates().filter { date in
+            let hasRecord = records.contains { Calendar.current.isDate($0.date, inSameDayAs: date) }
+            return isMissedPlannedTraining(date: date, planDay: plannedDay(for: date), hasRecord: hasRecord)
+        }.count
+    }
+
+    private func extraTrainingCount(records: [TrainingRecord]) -> Int {
+        records.filter { record in
+            plannedDay(for: record.date)?.kind != .training
+        }.count
+    }
+
+    private func isMissedPlannedTraining(date: Date, planDay: TrainingDay?, hasRecord: Bool) -> Bool {
+        guard planDay?.kind == .training, !hasRecord else { return false }
+        return Calendar.current.startOfDay(for: date) < Calendar.current.startOfDay(for: Date())
+    }
+
+    private func weeklyPlanIcon(date: Date, record: TrainingRecord?, planDay: TrainingDay?) -> String {
+        if record != nil { return "checkmark.circle.fill" }
+        if isMissedPlannedTraining(date: date, planDay: planDay, hasRecord: false) { return "exclamationmark.circle" }
+
+        switch planDay?.kind {
+        case .training: return "circle"
+        case .recovery: return "figure.cooldown"
+        case .rest: return "moon.fill"
+        case nil: return "minus"
+        }
+    }
+
+    private func weeklyPlanLabel(date: Date, record: TrainingRecord?, planDay: TrainingDay?) -> String {
+        if let record {
+            return calendarFocusTag(for: record)
+        }
+
+        guard let planDay else { return "-" }
+
+        switch planDay.kind {
+        case .training:
+            return isMissedPlannedTraining(date: date, planDay: planDay, hasRecord: false) ? "未练" : (planDay.focus ?? "练")
+        case .recovery:
+            return "恢复"
+        case .rest:
+            return "休"
+        }
+    }
+
+    private func shortWeekdayText(for date: Date) -> String {
+        let weekday = Calendar.current.component(.weekday, from: date)
+        let names = ["日", "一", "二", "三", "四", "五", "六"]
+        return names[max(0, min(weekday - 1, names.count - 1))]
+    }
+
+    private func weekRangeText() -> String {
+        guard let weekInterval = Calendar.current.dateInterval(of: .weekOfYear, for: selectedDate),
+              let lastDay = Calendar.current.date(byAdding: .day, value: -1, to: weekInterval.end) else {
+            return ""
+        }
+
+        let formatter = DateFormatter()
+        formatter.dateFormat = "M/d"
+        return "\(formatter.string(from: weekInterval.start)) - \(formatter.string(from: lastDay))"
+    }
+
+    private func weeklyFocusText(from records: [TrainingRecord]) -> String {
+        let focusAreas = records
+            .map { $0.focusArea.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+
+        guard !focusAreas.isEmpty else { return "暂无训练" }
+
+        let counts = Dictionary(grouping: focusAreas, by: { $0 }).mapValues(\.count)
+        return counts
+            .sorted { lhs, rhs in
+                if lhs.value == rhs.value {
+                    return lhs.key < rhs.key
+                }
+                return lhs.value > rhs.value
+            }
+            .prefix(2)
+            .map(\.key)
+            .joined(separator: " / ")
+    }
+
+    private func formatWeeklyDuration(_ duration: TimeInterval) -> String {
+        let minutes = Int(duration) / 60
+        if minutes >= 60 {
+            return "\(minutes / 60)h\(minutes % 60)m"
+        }
+        return "\(minutes)m"
     }
     
     @ViewBuilder
