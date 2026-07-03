@@ -91,7 +91,43 @@
     "%lld 项" : {
 
     },
+    "%lld/%lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld/%2$lld"
+          }
+        }
+      }
+    },
+    "%lld/%lld 组" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld/%2$lld 组"
+          }
+        }
+      }
+    },
+    "%lld/%lld 组 · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld/%2$lld 组 · %3$@"
+          }
+        }
+      }
+    },
+    "%lld%%" : {
+
+    },
     "%lldkg" : {
+
+    },
+    "+%lld more" : {
 
     },
     "✅ 匹配成功" : {
@@ -152,6 +188,9 @@
     "Active plans will appear here once started." : {
 
     },
+    "ACTIVE WORKOUT" : {
+
+    },
     "ACTUAL DURATION" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -208,6 +247,9 @@
           }
         }
       }
+    },
+    "AI 计划" : {
+
     },
     "AI-DRIVEN PARAMETRIC PROGRAMMING" : {
       "extractionState" : "manual",
@@ -398,6 +440,9 @@
           }
         }
       }
+    },
+    "CURRENT TRAINING" : {
+
     },
     "CUSTOM EXERCISE LOADOUT" : {
       "extractionState" : "manual",
@@ -594,6 +639,9 @@
           }
         }
       }
+    },
+    "Generate a plan or build a custom session from the library." : {
+
     },
     "GENERATE AI PLAN OR SELECT MANUALLY" : {
       "extractionState" : "manual",
@@ -888,6 +936,9 @@
         }
       }
     },
+    "NO EXERCISES" : {
+
+    },
     "NO EXERCISES FOUND" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -976,6 +1027,9 @@
         }
       }
     },
+    "NO TRAINING TODAY" : {
+
+    },
     "NO TREND DATA" : {
 
     },
@@ -1030,6 +1084,9 @@
         }
       }
     },
+    "READY TO TRAIN" : {
+
+    },
     "RECORDED SESSION" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1080,6 +1137,9 @@
           }
         }
       }
+    },
+    "REST" : {
+
     },
     "SEARCH EXERCISES..." : {
       "extractionState" : "manual",
@@ -1156,6 +1216,9 @@
       }
     },
     "SET" : {
+
+    },
+    "SET %lld" : {
 
     },
     "SETS" : {
@@ -1308,6 +1371,9 @@
           }
         }
       }
+    },
+    "TODAY'S EXERCISES" : {
+
     },
     "TONS" : {
 
@@ -1477,7 +1543,16 @@
         }
       }
     },
+    "你已经修改了本次训练。可以保存为训练记录，或放弃本次改动。" : {
+
+    },
     "保存到日历" : {
+
+    },
+    "保存并结束" : {
+
+    },
+    "保存并退出" : {
 
     },
     "保存成功" : {
@@ -1501,6 +1576,9 @@
       }
     },
     "全身" : {
+
+    },
+    "全身训练" : {
 
     },
     "写入健康App" : {
@@ -1543,6 +1621,16 @@
         }
       }
     },
+    "动作 %lld/%lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "动作 %1$lld/%2$lld"
+          }
+        }
+      }
+    },
     "动作结束总结" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1561,6 +1649,9 @@
       }
     },
     "历史记录" : {
+
+    },
+    "去动作库添加" : {
 
     },
     "取消" : {
@@ -1638,6 +1729,19 @@
         }
       }
     },
+    "左右滑动切换动作" : {
+
+    },
+    "已完成 %lld/%lld 组，训练时长 %@。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "已完成 %1$lld/%2$lld 组，训练时长 %3$@。"
+          }
+        }
+      }
+    },
     "已选 (%lld)" : {
 
     },
@@ -1645,6 +1749,9 @@
 
     },
     "开始时间" : {
+
+    },
+    "开始训练" : {
 
     },
     "快速捕获多页内容，提取日历信息" : {
@@ -1701,7 +1808,20 @@
         }
       }
     },
+    "所有动作都已完成。训练时长 %@，共完成 %lld 组。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "所有动作都已完成。训练时长 %1$@，共完成 %2$lld 组。"
+          }
+        }
+      }
+    },
     "手动搜索" : {
+
+    },
+    "手动添加" : {
 
     },
     "手动训练计划" : {
@@ -1751,6 +1871,9 @@
 
     },
     "提醒时间" : {
+
+    },
+    "放弃改动" : {
 
     },
     "整杯总糖：%lf g" : {
@@ -1840,6 +1963,9 @@
       }
     },
     "未匹配到饮料" : {
+
+    },
+    "查看一下" : {
 
     },
     "查看食物的热量" : {
@@ -2041,10 +2167,19 @@
     "添加到系统日历" : {
 
     },
+    "添加动作" : {
+
+    },
     "添加图像" : {
 
     },
     "清空" : {
+
+    },
+    "清空今日" : {
+
+    },
+    "清空今日训练？" : {
 
     },
     "热量：%lf kcal / 100g" : {
@@ -2117,7 +2252,16 @@
         }
       }
     },
+    "结束" : {
+
+    },
     "结束时间" : {
+
+    },
+    "结束训练？" : {
+
+    },
+    "继续训练" : {
 
     },
     "编辑" : {
@@ -2225,6 +2369,9 @@
     "行程已添加到您的日历中。" : {
 
     },
+    "训练完成" : {
+
+    },
     "训练计划" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2265,10 +2412,19 @@
     "识别内容：%@" : {
 
     },
+    "跳过" : {
+
+    },
     "输入饮料名称（如：可口可乐）" : {
 
     },
+    "这会移除当前今日训练列表里的动作。" : {
+
+    },
     "进度" : {
+
+    },
+    "退出训练？" : {
 
     },
     "选择截图" : {

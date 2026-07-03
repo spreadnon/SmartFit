@@ -19,7 +19,7 @@ struct TrainingPlanDetailView: View {
     init(plan: TrainingPlan, selectedDayIndex: Int) {
         self.plan = plan
         self._selectedDayIndex = State(initialValue: selectedDayIndex)
-        self._activePlanType = State(initialValue: plan.trainingSplit == "MANUAL" ? 1 : 0)
+        self._activePlanType = State(initialValue: (plan.trainingSplit == "MANUAL" || plan.trainingSplit == "自选训练") ? 1 : 0)
     }
     
     init(exercises: [Exercise]) {
@@ -237,7 +237,7 @@ struct TrainingPlanDetailView: View {
             
             Button {
                 withAnimation {
-                    appData.selectedTab = 1
+                    appData.selectedTab = 2
                 }
             } label: {
                 Text("GO TO LIBRARY")
@@ -356,7 +356,7 @@ struct ExerciseCard: View {
                         Button {
                             appData.replacementTargetId = exercise.id
                             withAnimation {
-                                appData.selectedTab = 1
+                                appData.selectedTab = 2
                             }
                         } label: {
                             Text("替换")

@@ -481,7 +481,7 @@ struct ExerciseLibraryView: View {
                 }
 
                 withAnimation {
-                    appData.selectedTab = 0
+                    appData.selectedTab = 1
                 }
                 // Clear selection for next time
                 selectedExercises = []

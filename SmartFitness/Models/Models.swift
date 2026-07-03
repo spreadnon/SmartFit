@@ -81,12 +81,35 @@ class AppData: ObservableObject {
     }
     
     func addToToday(exercises: [Exercise]) {
+        guard !exercises.isEmpty else { return }
+
+        if var plan = aiSmartPlan, !plan.days.isEmpty {
+            let dayIndex = plan.days.firstIndex(where: { !$0.isCompleted }) ?? 0
+            plan.days[dayIndex].exercises.append(contentsOf: exercises)
+            self.aiSmartPlan = plan
+            return
+        }
+
+        if var plan = manualPlan, !plan.days.isEmpty, Calendar.current.isDate(plan.createdAt, inSameDayAs: Date()) {
+            plan.days[0].exercises.append(contentsOf: exercises)
+            self.manualPlan = plan
+            return
+        }
+
         self.manualPlan = TrainingPlan(
             trainingSplit: "自选训练",
             instructions: NSLocalizedString("CUSTOM SESSION", comment: ""),
             days: [TrainingDay(label: NSLocalizedString("TODAY", comment: ""), exercises: exercises)]
         )
         self.aiSmartPlan = nil
+    }
+
+    var manualPlanForToday: TrainingPlan? {
+        guard let manualPlan,
+              Calendar.current.isDate(manualPlan.createdAt, inSameDayAs: Date()) else {
+            return nil
+        }
+        return manualPlan
     }
     
     func convertLibraryExercises(_ libraryExercises: [LibraryExercise]) -> [Exercise] {
@@ -140,6 +163,35 @@ class AppData: ObservableObject {
                 self.manualPlan = plan // Triggers didSet/save
                 return
             }
+        }
+    }
+
+    func removeExerciseFromToday(exerciseId: UUID) {
+        if var plan = aiSmartPlan, !plan.days.isEmpty {
+            let dayIndex = plan.days.firstIndex(where: { day in
+                day.exercises.contains(where: { $0.id == exerciseId })
+            }) ?? 0
+            plan.days[dayIndex].exercises.removeAll { $0.id == exerciseId }
+            self.aiSmartPlan = plan
+            return
+        }
+
+        if var plan = manualPlan, !plan.days.isEmpty {
+            plan.days[0].exercises.removeAll { $0.id == exerciseId }
+            self.manualPlan = plan
+        }
+    }
+
+    func clearTodayTraining() {
+        if var plan = aiSmartPlan, !plan.days.isEmpty {
+            let dayIndex = plan.days.firstIndex(where: { !$0.isCompleted }) ?? 0
+            plan.days[dayIndex].exercises.removeAll()
+            self.aiSmartPlan = plan
+            return
+        }
+
+        if let manualPlan, Calendar.current.isDate(manualPlan.createdAt, inSameDayAs: Date()) {
+            self.manualPlan = nil
         }
     }
     

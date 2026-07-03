@@ -35,7 +35,7 @@ struct TrainingPlanListView: View {
                             Spacer()
                         }
                         
-                        if let plan = appData.aiSmartPlan ?? appData.manualPlan {
+                        if let plan = appData.aiSmartPlan ?? appData.manualPlanForToday {
                             aiPlanArrangementCard(plan: plan)
                         } else {
                             // Empty State
@@ -73,7 +73,7 @@ struct TrainingPlanListView: View {
                                 color: StitchTheme.surfaceContainerHigh,
                                 textColor: StitchTheme.primary
                             ) {
-                                appData.selectedTab = 1
+                                appData.selectedTab = 2
                             }
                         }
                         
@@ -107,6 +107,7 @@ struct TrainingPlanListView: View {
                 }
             }
             .navigationBarHidden(true)
+            .toolbar(.visible, for: .tabBar)
             .sheet(isPresented: $showingGeneratePlan){
                 GeneratePlanView()
 //                FoodCalorieView()
@@ -241,7 +242,7 @@ struct TrainingPlanListView: View {
                         .foregroundColor(StitchTheme.primaryContainer)
                 }
                 Spacer()
-                NavigationLink(destination: TrainingPlanDetailView(plan: plan, selectedDayIndex: nextDayIndex)) {
+                NavigationLink(destination: ActiveWorkoutView(source: workoutSource(for: plan), dayIndex: nextDayIndex)) {
                     Image(systemName: "play.fill")
                         .font(.title2)
                         .foregroundColor(StitchTheme.onPrimaryFixed)
@@ -251,6 +252,10 @@ struct TrainingPlanListView: View {
                 }
             }
             
+            if !plan.days.isEmpty {
+                todayExercisePreview(for: plan.days[min(nextDayIndex, plan.days.count - 1)])
+            }
+
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Text("进度")
@@ -277,7 +282,7 @@ struct TrainingPlanListView: View {
             VStack(spacing: 10) {
                 ForEach(Array(plan.days.enumerated()), id: \.offset) { index, day in
                     let focusTitle = currentDayFocusTitle(for: day)
-                    NavigationLink(destination: TrainingPlanDetailView(plan: plan, selectedDayIndex: index)) {
+                    NavigationLink(destination: ActiveWorkoutView(source: workoutSource(for: plan), dayIndex: isManual ? 0 : index)) {
                         HStack(spacing: 10) {
                             Text(day.label)
                                 .font(StitchTypography.label)
@@ -315,6 +320,43 @@ struct TrainingPlanListView: View {
         .background(StitchTheme.surfaceContainer)
         .cornerRadius(12)
     }
+
+    private func todayExercisePreview(for day: TrainingDay) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("CURRENT TRAINING")
+                .font(StitchTypography.labelSmall)
+                .foregroundColor(StitchTheme.onSurfaceVariant)
+                .tracking(2)
+
+            ForEach(day.exercises.prefix(4)) { exercise in
+                HStack(spacing: 8) {
+                    Image(systemName: exercise.isCompleted ? "checkmark.circle.fill" : "circle")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(exercise.isCompleted ? StitchTheme.primaryContainer : StitchTheme.onSurfaceVariant)
+
+                    Text(exercise.exerciseName)
+                        .font(StitchTypography.labelSmall)
+                        .foregroundColor(StitchTheme.onSurface)
+                        .lineLimit(1)
+
+                    Spacer()
+
+                    Text("\(exercise.exerciseSets.filter { $0.isCompleted }.count)/\(exercise.exerciseSets.count)")
+                        .font(StitchTypography.labelSmall)
+                        .foregroundColor(StitchTheme.onSurfaceVariant)
+                }
+            }
+
+            if day.exercises.count > 4 {
+                Text("+\(day.exercises.count - 4) more")
+                    .font(StitchTypography.labelSmall)
+                    .foregroundColor(StitchTheme.onSurfaceVariant)
+            }
+        }
+        .padding(12)
+        .background(StitchTheme.surfaceContainerLow)
+        .cornerRadius(10)
+    }
     
     private func currentDayFocusTitle(for day: TrainingDay) -> String {
         let muscles = day.exercises
@@ -327,6 +369,11 @@ struct TrainingPlanListView: View {
             return uniqueMuscles.prefix(2).joined(separator: " / ")
         }
         return NSLocalizedString("全身", comment: "")
+    }
+
+    private func workoutSource(for plan: TrainingPlan) -> ActiveWorkoutSource {
+        let isManual = plan.trainingSplit == "自选训练" || plan.trainingSplit == "MANUAL"
+        return isManual ? .manual : .ai
     }
     
     
