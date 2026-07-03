@@ -41,6 +41,12 @@ struct TrainingRecordView: View {
         .onAppear {
             fetchRemoteRecordIfNeeded(for: selectedDate)
         }
+        .onChange(of: appData.selectedTab) { tab in
+            if tab == 3 {
+                selectedDate = Date()
+                fetchRemoteRecordIfNeeded(for: selectedDate)
+            }
+        }
     }
     
     private func fetchRemoteRecordIfNeeded(for date: Date) {

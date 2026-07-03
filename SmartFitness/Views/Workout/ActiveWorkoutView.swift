@@ -74,6 +74,7 @@ struct ActiveWorkoutView: View {
     @State private var exercisePendingDeletion: Exercise?
     @State private var completedSummary: WorkoutSummary?
     @State private var syncStatus: WorkoutSyncStatus = .notSaved
+    @State private var pendingSyncRecord: TrainingRecord?
     @State private var hasInteracted = false
     @State private var originalPlan: TrainingPlan?
 
@@ -111,20 +112,23 @@ struct ActiveWorkoutView: View {
     }
 
     var body: some View {
-        ZStack {
+        ZStack(alignment: .top) {
             StitchTheme.background.ignoresSafeArea()
 
             if let completedSummary {
-                WorkoutSummaryView(summary: completedSummary, syncStatus: syncStatus) {
+                WorkoutSummaryView(
+                    summary: completedSummary,
+                    syncStatus: syncStatus,
+                    onRetrySync: retrySync,
+                    onViewHistory: {
+                        appData.selectedTab = 3
+                        dismiss()
+                    }
+                ) {
                     dismiss()
                 }
             } else {
                 VStack(spacing: 0) {
-                if showingRestComplete {
-                    restCompleteBanner
-                        .transition(.move(edge: .top).combined(with: .opacity))
-                }
-
                     headerBar
 
                     if let exercise = currentExercise {
@@ -151,6 +155,8 @@ struct ActiveWorkoutView: View {
                         emptyWorkoutState
                     }
                 }
+
+                restOverlayPanel
             }
         }
         .navigationBarHidden(true)
@@ -165,7 +171,7 @@ struct ActiveWorkoutView: View {
             if originalPlan == nil {
                 originalPlan = activePlan
             }
-            clampCurrentExerciseIndex()
+            setInitialExerciseIndex()
         }
         .onReceive(timer) { _ in
             sessionDuration = Date().timeIntervalSince(startTime)
@@ -271,16 +277,33 @@ struct ActiveWorkoutView: View {
     }
 
     private var stickyStatusPanel: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 0) {
             progressSection
-            restBanner
         }
         .padding(.horizontal, 20)
-        .padding(.bottom, isResting ? 14 : 12)
+        .padding(.bottom, 12)
         .background(
             StitchTheme.background.opacity(0.98)
                 .shadow(color: Color.black.opacity(0.25), radius: 14, y: 8)
         )
+    }
+
+    @ViewBuilder
+    private var restOverlayPanel: some View {
+        VStack(spacing: 10) {
+            if showingRestComplete {
+                restCompleteBanner
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
+
+            if isResting {
+                restBanner
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 132)
+        .allowsHitTesting(isResting || showingRestComplete)
     }
 
     private var progressSection: some View {
@@ -676,6 +699,19 @@ struct ActiveWorkoutView: View {
         currentExerciseIndex = min(currentExerciseIndex, exercises.count - 1)
     }
 
+    private func setInitialExerciseIndex() {
+        guard !exercises.isEmpty else {
+            currentExerciseIndex = 0
+            return
+        }
+
+        if let firstIncompleteIndex = exercises.firstIndex(where: { !$0.isCompleted }) {
+            currentExerciseIndex = firstIncompleteIndex
+        } else {
+            currentExerciseIndex = exercises.count - 1
+        }
+    }
+
     private func requestDismiss() {
         if completedSummary != nil {
             dismiss()
@@ -713,18 +749,9 @@ struct ActiveWorkoutView: View {
                 duration: sessionDuration,
                 isCompleted: day.exercises.allSatisfy { $0.isCompleted }
             )
+            pendingSyncRecord = record
 
-            NetworkManager.shared.saveTraining(record: record, token: appData.currentUser?.token) { result in
-                DispatchQueue.main.async {
-                    switch result {
-                    case .success:
-                        syncStatus = .synced
-                    case .failure(let error):
-                        syncStatus = .failed
-                        print("❌ 训练记录同步失败: \(error.localizedDescription)")
-                    }
-                }
-            }
+            syncTrainingRecord(record)
         } else {
             syncStatus = .notSaved
         }
@@ -741,6 +768,26 @@ struct ActiveWorkoutView: View {
             assignPlan(originalPlan)
         }
         dismiss()
+    }
+
+    private func retrySync() {
+        guard let pendingSyncRecord else { return }
+        syncTrainingRecord(pendingSyncRecord)
+    }
+
+    private func syncTrainingRecord(_ record: TrainingRecord) {
+        syncStatus = .syncing
+        NetworkManager.shared.saveTraining(record: record, token: appData.currentUser?.token) { result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success:
+                    syncStatus = .synced
+                case .failure(let error):
+                    syncStatus = .failed
+                    print("❌ 训练记录同步失败: \(error.localizedDescription)")
+                }
+            }
+        }
     }
 
     private func formatDuration(_ duration: TimeInterval) -> String {
@@ -769,6 +816,13 @@ struct ActiveWorkoutView: View {
     }
 
     private func setTabBarHidden(_ hidden: Bool) {
+        let appearance = UITabBarAppearance()
+        appearance.configureWithOpaqueBackground()
+        appearance.backgroundColor = UIColor(StitchTheme.background)
+
+        UITabBar.appearance().standardAppearance = appearance
+        UITabBar.appearance().scrollEdgeAppearance = appearance
+        UITabBar.appearance().isTranslucent = false
         UITabBar.appearance().isHidden = hidden
     }
 }
@@ -776,6 +830,8 @@ struct ActiveWorkoutView: View {
 struct WorkoutSummaryView: View {
     let summary: WorkoutSummary
     let syncStatus: WorkoutSyncStatus
+    let onRetrySync: () -> Void
+    let onViewHistory: () -> Void
     let onDone: () -> Void
 
     var body: some View {
@@ -792,14 +848,26 @@ struct WorkoutSummaryView: View {
                 .padding(.bottom, 120)
             }
 
-            Button(action: onDone) {
-                Text("完成")
-                    .font(StitchTypography.label)
-                    .foregroundColor(StitchTheme.onPrimaryFixed)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .background(StitchTheme.primaryContainer)
-                    .cornerRadius(14)
+            VStack(spacing: 12) {
+                Button(action: onViewHistory) {
+                    Text("查看历史记录")
+                        .font(StitchTypography.label)
+                        .foregroundColor(StitchTheme.onPrimaryFixed)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(StitchTheme.primaryContainer)
+                        .cornerRadius(14)
+                }
+
+                Button(action: onDone) {
+                    Text("完成")
+                        .font(StitchTypography.labelSmall)
+                        .foregroundColor(StitchTheme.primaryContainer)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 13)
+                        .background(StitchTheme.primaryContainer.opacity(0.1))
+                        .cornerRadius(12)
+                }
             }
             .padding(.horizontal, 24)
             .padding(.vertical, 18)
@@ -856,6 +924,18 @@ struct WorkoutSummaryView: View {
             }
 
             Spacer()
+
+            if syncStatus == .failed {
+                Button("重试") {
+                    onRetrySync()
+                }
+                .font(StitchTypography.labelSmall)
+                .foregroundColor(StitchTheme.onPrimaryFixed)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(StitchTheme.primaryContainer)
+                .cornerRadius(8)
+            }
         }
         .padding(16)
         .background(StitchTheme.surfaceContainer)

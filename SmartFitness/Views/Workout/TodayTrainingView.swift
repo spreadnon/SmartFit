@@ -88,6 +88,7 @@ struct TodayTrainingView: View {
     private func todayPlanCard(plan: TrainingPlan, day: TrainingDay, dayIndex: Int) -> some View {
         let progress = progressInfo(for: day)
         let percentage = progress.total == 0 ? 0 : Int((Double(progress.completed) / Double(progress.total)) * 100)
+        let isCompleted = progress.total > 0 && progress.completed == progress.total
 
         return VStack(alignment: .leading, spacing: 20) {
             HStack(alignment: .top) {
@@ -132,19 +133,36 @@ struct TodayTrainingView: View {
                 statBlock(title: "已完成", value: "\(progress.completed)")
             }
 
-            NavigationLink {
-                ActiveWorkoutView(source: isManualPlan(plan) ? .manual : .ai, dayIndex: dayIndex)
-            } label: {
-                HStack {
-                    Image(systemName: progress.completed > 0 ? "play.fill" : "bolt.fill")
-                    Text(progress.completed > 0 ? "继续训练" : "开始训练")
+            if isCompleted {
+                Button {
+                    appData.selectedTab = 3
+                } label: {
+                    HStack {
+                        Image(systemName: "checkmark.circle.fill")
+                        Text("今日训练已完成，查看记录")
+                    }
+                    .font(StitchTypography.label)
+                    .foregroundColor(StitchTheme.onPrimaryFixed)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(StitchTheme.primaryContainer)
+                    .cornerRadius(12)
                 }
-                .font(StitchTypography.label)
-                .foregroundColor(StitchTheme.onPrimaryFixed)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 16)
-                .background(StitchTheme.primaryContainer)
-                .cornerRadius(12)
+            } else {
+                NavigationLink {
+                    ActiveWorkoutView(source: isManualPlan(plan) ? .manual : .ai, dayIndex: dayIndex)
+                } label: {
+                    HStack {
+                        Image(systemName: progress.completed > 0 ? "play.fill" : "bolt.fill")
+                        Text(progress.completed > 0 ? "继续训练" : "开始训练")
+                    }
+                    .font(StitchTypography.label)
+                    .foregroundColor(StitchTheme.onPrimaryFixed)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(StitchTheme.primaryContainer)
+                    .cornerRadius(12)
+                }
             }
 
             HStack(spacing: 12) {
