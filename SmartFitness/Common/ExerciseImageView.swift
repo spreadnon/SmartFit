@@ -33,12 +33,20 @@ struct ExerciseImageView: View {
             }
         }
         .onAppear {
-            loadImage()
+            loadImage(force: false)
+        }
+        .onChange(of: imagePath) { _ in
+            loadImage(force: true)
         }
     }
     
-    private func loadImage() {
-        guard !imagePath.isEmpty, !didRequestImage else { return }
+    private func loadImage(force: Bool) {
+        guard !imagePath.isEmpty else {
+            uiImage = nil
+            didRequestImage = false
+            return
+        }
+        guard force || !didRequestImage else { return }
 
         let effectiveImagePath = imagePath
             .replacingOccurrences(of: "/", with: "_")
@@ -47,10 +55,14 @@ struct ExerciseImageView: View {
 
         if let cachedImage = Self.imageCache.object(forKey: cacheKey) {
             uiImage = cachedImage
+            didRequestImage = true
             return
         }
 
         didRequestImage = true
+        if force {
+            uiImage = nil
+        }
 
         DispatchQueue.global(qos: .userInitiated).async {
             let image = Self.resolveImage(named: effectiveImagePath)
@@ -60,6 +72,12 @@ struct ExerciseImageView: View {
             }
 
             DispatchQueue.main.async {
+                // Ignore stale responses if the path changed while loading.
+                guard self.imagePath
+                    .replacingOccurrences(of: "/", with: "_")
+                    .replacingOccurrences(of: ".jpg", with: "") == effectiveImagePath else {
+                    return
+                }
                 uiImage = image
             }
         }

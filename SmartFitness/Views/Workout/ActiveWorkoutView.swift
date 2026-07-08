@@ -78,6 +78,9 @@ struct ActiveWorkoutView: View {
     @State private var pendingSyncRecord: TrainingRecord?
     @State private var hasInteracted = false
     @State private var originalPlan: TrainingPlan?
+    @State private var weightInputSetIndex: Int?
+    @State private var weightInputText = ""
+    @State private var showingWeightInput = false
 
     private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
@@ -218,6 +221,19 @@ struct ActiveWorkoutView: View {
             }
         } message: {
             Text("这会从今日训练中移除当前动作。")
+        }
+        .alert("输入重量 (kg)", isPresented: $showingWeightInput) {
+            TextField("例如 42.5", text: $weightInputText)
+                .keyboardType(.decimalPad)
+            Button("取消", role: .cancel) {
+                weightInputSetIndex = nil
+                weightInputText = ""
+            }
+            Button("确定") {
+                applyManualWeightInput()
+            }
+        } message: {
+            Text("直接输入本次组使用的重量。")
         }
     }
 
@@ -409,6 +425,7 @@ struct ActiveWorkoutView: View {
         VStack(alignment: .leading, spacing: 16) {
             if let image = exercise.images.first {
                 ExerciseImageView(imagePath: image)
+                    .id("\(exercise.id)-\(image)")
                     .frame(height: 190)
                     .frame(maxWidth: .infinity)
                     .clipped()
@@ -450,6 +467,35 @@ struct ActiveWorkoutView: View {
                     isNextSet: nextSetIndex == index
                 )
             }
+
+            HStack(spacing: 12) {
+                Button(action: addSet) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 12, weight: .bold))
+                        Text("加一组")
+                            .font(StitchTypography.label)
+                    }
+                    .foregroundColor(StitchTheme.primaryContainer)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(StitchTheme.surfaceContainerHigh)
+                    .cornerRadius(10)
+                }
+
+                if exercise.exerciseSets.count > 1 {
+                    Button(action: removeLastSet) {
+                        Image(systemName: "minus")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(StitchTheme.secondary)
+                            .frame(width: 48)
+                            .padding(.vertical, 12)
+                            .background(StitchTheme.surfaceContainerHighest)
+                            .cornerRadius(10)
+                    }
+                }
+            }
+            .padding(.top, 4)
         }
         .padding(16)
         .background(StitchTheme.surfaceContainer)
@@ -473,13 +519,16 @@ struct ActiveWorkoutView: View {
 
                 HStack(spacing: 12) {
                     valueStepper(
-                        value: "\(Int(set.weight))kg",
+                        value: formatWeight(set.weight),
+                        isDisabled: set.isCompleted,
                         minus: { adjustWeight(at: index, by: -2.5) },
-                        plus: { adjustWeight(at: index, by: 2.5) }
+                        plus: { adjustWeight(at: index, by: 2.5) },
+                        onValueTap: { beginWeightInput(at: index, currentWeight: set.weight) }
                     )
 
                     valueStepper(
                         value: "\(set.reps)次",
+                        isDisabled: set.isCompleted,
                         minus: { adjustReps(at: index, by: -1) },
                         plus: { adjustReps(at: index, by: 1) }
                     )
@@ -497,29 +546,50 @@ struct ActiveWorkoutView: View {
         .cornerRadius(12)
     }
 
-    private func valueStepper(value: String, minus: @escaping () -> Void, plus: @escaping () -> Void) -> some View {
+    private func valueStepper(
+        value: String,
+        isDisabled: Bool = false,
+        minus: @escaping () -> Void,
+        plus: @escaping () -> Void,
+        onValueTap: (() -> Void)? = nil
+    ) -> some View {
         HStack(spacing: 8) {
             Button(action: minus) {
                 Image(systemName: "minus")
                     .font(.system(size: 10, weight: .bold))
             }
+            .disabled(isDisabled)
 
-            Text(value)
-                .font(StitchTypography.label)
-                .foregroundColor(StitchTheme.onSurface)
-                .monospacedDigit()
-                .frame(minWidth: 52)
+            if let onValueTap {
+                Button(action: onValueTap) {
+                    Text(value)
+                        .font(StitchTypography.label)
+                        .foregroundColor(StitchTheme.onSurface)
+                        .monospacedDigit()
+                        .frame(minWidth: 52)
+                        .underline(color: StitchTheme.primaryContainer.opacity(0.45))
+                }
+                .disabled(isDisabled)
+            } else {
+                Text(value)
+                    .font(StitchTypography.label)
+                    .foregroundColor(StitchTheme.onSurface)
+                    .monospacedDigit()
+                    .frame(minWidth: 52)
+            }
 
             Button(action: plus) {
                 Image(systemName: "plus")
                     .font(.system(size: 10, weight: .bold))
             }
+            .disabled(isDisabled)
         }
         .foregroundColor(StitchTheme.primaryContainer)
         .padding(.horizontal, 8)
         .padding(.vertical, 6)
         .background(StitchTheme.surfaceContainerHigh)
         .cornerRadius(8)
+        .opacity(isDisabled ? 0.55 : 1)
     }
 
     private func setRowBackground(isCompleted: Bool, isNextSet: Bool) -> Color {
@@ -663,6 +733,18 @@ struct ActiveWorkoutView: View {
         assignPlan(plan)
     }
 
+    private func updateCurrentExerciseSets(_ update: (inout [ExerciseSet]) -> Void) {
+        guard var plan = activePlan,
+              plan.days.indices.contains(resolvedDayIndex),
+              plan.days[resolvedDayIndex].exercises.indices.contains(currentExerciseIndex) else {
+            return
+        }
+
+        update(&plan.days[resolvedDayIndex].exercises[currentExerciseIndex].exerciseSets)
+        hasInteracted = true
+        assignPlan(plan)
+    }
+
     private func toggleSetCompletion(at setIndex: Int, restTime: Int) {
         var completedNow = false
         var currentExerciseCompletedNow = false
@@ -695,9 +777,68 @@ struct ActiveWorkoutView: View {
     }
 
     private func adjustReps(at setIndex: Int, by amount: Int) {
-        updateCurrentSet(at: setIndex) { set in
-            set.reps = max(1, set.reps + amount)
+        updateCurrentExerciseSets { sets in
+            guard sets.indices.contains(setIndex) else { return }
+            let newReps = max(1, sets[setIndex].reps + amount)
+
+            // Keep unfinished sets on the same habitual rep target.
+            for index in sets.indices where !sets[index].isCompleted {
+                if index == setIndex || index > setIndex {
+                    sets[index].reps = newReps
+                }
+            }
         }
+    }
+
+    private func addSet() {
+        updateCurrentExerciseSets { sets in
+            let template = sets.last ?? ExerciseSet(weight: 10, reps: 10)
+            sets.append(ExerciseSet(weight: template.weight, reps: template.reps))
+        }
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    }
+
+    private func removeLastSet() {
+        updateCurrentExerciseSets { sets in
+            guard sets.count > 1 else { return }
+            sets.removeLast()
+        }
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    }
+
+    private func beginWeightInput(at setIndex: Int, currentWeight: Double) {
+        weightInputSetIndex = setIndex
+        weightInputText = formatWeightValue(currentWeight)
+        showingWeightInput = true
+    }
+
+    private func applyManualWeightInput() {
+        defer {
+            weightInputSetIndex = nil
+            weightInputText = ""
+        }
+
+        guard let setIndex = weightInputSetIndex else { return }
+
+        let normalized = weightInputText
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: ",", with: ".")
+        guard let weight = Double(normalized), weight >= 0 else { return }
+
+        updateCurrentSet(at: setIndex) { set in
+            set.weight = weight
+        }
+    }
+
+    private func formatWeight(_ weight: Double) -> String {
+        "\(formatWeightValue(weight))kg"
+    }
+
+    private func formatWeightValue(_ weight: Double) -> String {
+        if weight.truncatingRemainder(dividingBy: 1) == 0 {
+            return "\(Int(weight))"
+        }
+        return String(format: "%g", weight)
     }
 
     private func startRestTimer(seconds: Int) {
