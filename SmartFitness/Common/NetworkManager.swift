@@ -1,6 +1,6 @@
 import Foundation
 
-let hostName = "http://10.108.2.95:8001"
+let hostName = "http://192.168.31.20:8001"
 
 class NetworkManager {
     static let shared = NetworkManager()

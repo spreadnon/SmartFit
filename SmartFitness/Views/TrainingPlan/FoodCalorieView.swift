@@ -45,20 +45,20 @@ class FoodRecognizer: ObservableObject {
     @Published var calories: Double = 0
     
     func recognize(image: UIImage) {
-        guard let model = try? VNCoreMLModel(for: food().model) else { return }
-        
-        let request = VNCoreMLRequest(model: model) { [weak self] req, err in
-            guard let results = req.results as? [VNClassificationObservation],
-                  let top = results.first else { return }
-            
-            DispatchQueue.main.async {
-                self?.foodName = top.identifier
-                self?.fetchCalories(name: top.identifier)
-            }
-        }
-        
-        guard let ci = CIImage(image: image) else { return }
-        try? VNImageRequestHandler(ciImage: ci).perform([request])
+//        guard let model = try? VNCoreMLModel(for: food().model) else { return }
+//        
+//        let request = VNCoreMLRequest(model: model) { [weak self] req, err in
+//            guard let results = req.results as? [VNClassificationObservation],
+//                  let top = results.first else { return }
+//            
+//            DispatchQueue.main.async {
+//                self?.foodName = top.identifier
+//                self?.fetchCalories(name: top.identifier)
+//            }
+//        }
+//        
+//        guard let ci = CIImage(image: image) else { return }
+//        try? VNImageRequestHandler(ciImage: ci).perform([request])
     }
     
     // OpenFoodFacts 免费查热量
